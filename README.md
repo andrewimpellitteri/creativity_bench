@@ -1,2 +1,12 @@
-# creativity_bench
-A benchmark for the creativity of LLMs based on Gwern's post
+# LLM Creativity Benchmark
+
+A comprehensive evaluation suite for measuring creative capabilities in large language models (LLMs). This benchmark assesses four key dimensions of creativity through structured tests and quantitative metrics.
+
+Based on [this](https://gwern.net/creative-benchmark) post by Gwern.
+
+## Key Features
+- **Free Association Test**: Measures lexical originality and vocabulary estimation
+- **Telephone Game**: Quantifies semantic drift through iterative paraphrasing
+- **Camel's Back Challenge**: Tests narrative coherence under multiple edits
+- **DRY (Don't Repeat Yourself) Test**: Evaluates output diversity across prompts
+- **Composite Creativity Score**: Combined metric aggregating multiple dimensions
