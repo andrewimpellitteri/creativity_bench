@@ -65,7 +65,7 @@ class CreativityBenchmark:
         frequencies = Counter()
         pbar = tqdm(total=max_iter, desc="Free Association")
         
-        prompt = "The next word that comes to mind is:"
+        prompt = " Freely associate lists of words or numbers— just say whatever word next comes to mind. Respond only with one word and nothing else."
         for i in range(max_iter):
             new_word = self._generate(prompt).split()[0].strip('.,!?;:"').lower()
             frequencies[new_word] += 1
@@ -114,7 +114,8 @@ class CreativityBenchmark:
             
             current = self._generate(
                 f"Summarize this story in one sentence:\n{expanded}",
-                temperature=0.3
+                temperature=0.3,
+                max_tokens=50
             )
             print(f"New summary: {current}")
             
@@ -177,13 +178,36 @@ class CreativityBenchmark:
             check = self._generate(check_prompt, temperature=0.1)
             print(f"\nQuality check results:\n{check}")
             
-            if not all(x in check.lower() for x in ['yes']):
+            # Split into lines and clean up whitespace
+            check_lines = [line.strip() for line in check.split('\n') if line.strip()]
+
+            # Look for explicit yes/no answers
+            expected_answers = 3  # We're asking 3 questions
+            yes_count = 0
+            found_answers = 0
+
+            for line in check_lines:
+                # Look for numbered responses or lines containing yes/no
+                if ('yes' in line or 'no' in line) and any(str(i) in line for i in range(1, expected_answers + 1)):
+                    found_answers += 1
+                    if 'yes' in line:
+                        yes_count += 1
+
+            # Quality check passes if:
+            # 1. We found responses to all questions
+            # 2. All responses were 'yes'
+            if found_answers == expected_answers and yes_count == expected_answers:
+                story = modified_story
+                coherent_edits += 1
+                pbar.update(1)
+            else:
                 print("→ Quality check failed! Stopping edits.")
+                print(f"Found {found_answers} answers, {yes_count} were 'yes'")
                 break
-                
-            story = modified_story
-            coherent_edits += 1
-            pbar.update(1)
+                    
+                story = modified_story
+                coherent_edits += 1
+                pbar.update(1)
         
         pbar.close()
         print(f"\nSuccessfully made {coherent_edits} coherent edits.")
