@@ -98,6 +98,9 @@ class CreativityBenchmark:
         print("\n=== Telephone Game Test ===")
         print(f"Starting with: {seed_text}")
         
+        if not seed_text or not seed_text.strip():
+            raise ValueError("Seed text cannot be empty")
+            
         current = seed_text
         previous = None
         iterations = 0
@@ -110,6 +113,11 @@ class CreativityBenchmark:
                 f"Expand this summary into a detailed story:\n{current}",
                 temperature=0.8
             )
+            
+            # Validate expanded response
+            if not expanded or not expanded.strip():
+                raise ValueError(f"Received empty expanded story in iteration {i+1}")
+                
             print(f"Expanded story:\n{expanded}")
             
             current = self._generate(
@@ -117,6 +125,11 @@ class CreativityBenchmark:
                 temperature=0.3,
                 max_tokens=50
             )
+            
+            # Validate summary response
+            if not current or not current.strip():
+                raise ValueError(f"Received empty summary in iteration {i+1}")
+                
             print(f"New summary: {current}")
             
             if previous is not None:
