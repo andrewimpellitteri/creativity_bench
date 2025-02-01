@@ -1,16 +1,14 @@
 import numpy as np
 from scipy.spatial.distance import cosine
 import ollama
-from sentence_transformers import SentenceTransformer
 from tqdm.auto import tqdm
 from Levenshtein import distance as levenshtein_distance
 import random
 from collections import Counter
 
 class CreativityBenchmark:
-    def __init__(self, model_name="llama2", embedder_model="all-MiniLM-L6-v2"):
+    def __init__(self, model_name="llama2"):
         self.model = model_name
-        self.embedder = SentenceTransformer(embedder_model)
         
         self.edit_requests = [
             "make it more humorous",
@@ -65,7 +63,7 @@ class CreativityBenchmark:
         frequencies = Counter()
         pbar = tqdm(total=max_iter, desc="Free Association")
         
-        prompt = " Freely associate lists of words or numbers— just say whatever word next comes to mind. Respond only with one word and nothing else."
+        prompt = "Freely associate lists of words or numbers— just say whatever word next comes to mind. Respond only with one word and nothing else."
         for i in range(max_iter):
             new_word = self._generate(prompt).split()[0].strip('.,!?;:"').lower()
             frequencies[new_word] += 1
@@ -135,8 +133,8 @@ class CreativityBenchmark:
             if previous is not None:
                 edit_sim = 1 - (levenshtein_distance(current, previous) / max(len(current), len(previous)))
                 semantic_sim = 1 - cosine(
-                    self.embedder.encode(current),
-                    self.embedder.encode(previous)
+                    ollama.embeddings(model='nomic-embed-text', prompt=current).embedding,
+                    ollama.embeddings(model='nomic-embed-text', prompt=previous).embedding
                 )
                 
                 print(f"Edit similarity: {edit_sim:.2f}")
@@ -227,19 +225,9 @@ class CreativityBenchmark:
         return coherent_edits
 
     def dont_repeat_yourself(self, template="Write a story about {}", samples=5, min_length=100):
-        """Test diversity of outputs with controlled randomness and volume-based scoring
-        
-        Args:
-            template (str): Template string with {} placeholder for concept
-            samples (int): Number of stories to generate
-            min_length (int): Minimum required length for generated stories
-        
-        Returns:
-            tuple: (volume_score, mean_distance, std_distance, coverage_score)
-        """
+        """Test diversity of outputs with controlled randomness and volume-based scoring"""
         print("\n=== Don't Repeat Yourself Test ===")
         
-        # Expanded concept list with more variety and structure
         concepts = {
             'sci_fi': ["a time machine", "an alien artifact", "a sentient AI", "a space colony", "a quantum computer"],
             'fantasy': ["an ancient spell book", "a magical ring", "an enchanted forest", "a dragon's lair", "a wizard's tower"],
@@ -249,19 +237,16 @@ class CreativityBenchmark:
         
         generations = []
         embeddings = []
-        categories_used = set()
+        categories_used = []  # Changed from set to list
         
         pbar = tqdm(total=samples, desc="Testing Output Diversity")
         
-        # Ensure we use different categories when possible
         for i in range(samples):
-            # Select category with lowest usage
-            available_categories = [cat for cat in concepts.keys() 
-                                if len(categories_used) < len(concepts) or cat in categories_used]
+            # Select category with lowest usage count
+            available_categories = list(concepts.keys())  # Always consider all categories
             category = min(available_categories, key=lambda x: categories_used.count(x))
-            categories_used.add(category)
+            categories_used.append(category)  # Append to list
             
-            # Select random concept from category
             concept = random.choice(concepts[category])
             prompt = template.format(concept)
             
@@ -270,14 +255,13 @@ class CreativityBenchmark:
             
             text = self._generate(prompt)
             
-            # Validate output length
             if len(text.split()) < min_length:
                 print(f"Warning: Generation {i+1} is shorter than minimum length")
             
             print(f"Generated story ({len(text.split())} words):\n{text}")
             
             generations.append(text)
-            embeddings.append(self.embedder.encode(text))
+            embeddings.append(ollama.embeddings(model='nomic-embed-text', prompt=text).embedding)
             pbar.update(1)
         
         pbar.close()
@@ -318,7 +302,7 @@ class CreativityBenchmark:
         print(f"- Least similar pair: Stories {np.unravel_index(similarities.argmin(), similarities.shape)[0]+1} "
             f"and {np.unravel_index(similarities.argmin(), similarities.shape)[1]+1}")
         
-        return volume_score, mean_dist, std_dist, coverage_score
+        return volume_score
 
     def combined_score(self, seed_text, weights=None):
         """Calculate overall creativity score using multiple metrics"""
@@ -331,15 +315,14 @@ class CreativityBenchmark:
         fa_score, fa_total = self.free_association()
         tel_score = self.telephone_game(seed_text)
         cb_score = self.camels_back(seed_text)
-        div_mean, div_std = self.dont_repeat_yourself()
+        volume_score = self.dont_repeat_yourself()
         
         scores = {
             "free_association": fa_score,
             "estimated_vocabulary": fa_total,
             "telephone_game": tel_score,
             "camels_back": cb_score,
-            "diversity_mean": div_mean,
-            "diversity_std": div_std
+            "dont_repeat_yourself": volume_score
         }
         
         # Normalize scores (higher = better)
@@ -347,7 +330,7 @@ class CreativityBenchmark:
             "free_association": fa_score / 100,
             "telephone_game": tel_score / 10,
             "camels_back": cb_score / 10,
-            "diversity": div_mean
+            "diversity": volume_score
         }
         
         # Default equal weights
@@ -362,7 +345,7 @@ class CreativityBenchmark:
 
 # Example usage
 if __name__ == "__main__":
-    benchmark = CreativityBenchmark(model_name="deepseek-r1:1.5b")
+    benchmark = CreativityBenchmark(model_name="qwen2.5:0.5b")
     results = benchmark.combined_score("A dragon guarded a treasure.")
     
     print("\n============= Final Results =============")
