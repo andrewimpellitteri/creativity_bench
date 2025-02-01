@@ -9,4 +9,19 @@ Based on [this](https://gwern.net/creative-benchmark) post by Gwern.
 - **Telephone Game**: Quantifies semantic drift through iterative paraphrasing
 - **Camel's Back Challenge**: Tests narrative coherence under multiple edits
 - **DRY (Don't Repeat Yourself) Test**: Evaluates output diversity across prompts
+- **Extreme Style Transfer Test**: Take a set of stories with genre labels; ask a LLM to summarize each one; then ask it to write a story using only the summary and a random other genre label; score based on how different the other genre versions are from the original. 
 - **Composite Creativity Score**: Combined metric aggregating multiple dimensions
+
+## Installation and Usage
+
+Clone the repository and run:
+
+```
+pip install -r requirements.txt
+```
+
+and then
+
+```
+python benchmark.py
+```
