@@ -6,9 +6,13 @@ from Levenshtein import distance as levenshtein_distance
 import random
 from collections import Counter
 from utils import sample_stories, genre_list
+import argparse
+import json
+import os
+import uuid
 
 class CreativityBenchmark:
-    def __init__(self, model_name="llama2"):
+    def __init__(self, model_name):
         self.model = model_name
         
         self.edit_requests = [
@@ -425,21 +429,84 @@ class CreativityBenchmark:
             "composite": composite
         }
 
-# Example usage
-if __name__ == "__main__":
-    benchmark = CreativityBenchmark(model_name="qwen2.5:0.5b")
-    results = benchmark.combined_score("A dragon guarded a treasure.")
+def print_results(results):
+    output_lines = []
+    output_lines.append("\n============= Final Results =============")
+    output_lines.append(f"Composite Creativity Score: {results['composite']:.2f}")
     
-    print("\n============= Final Results =============")
-    print(f"Composite Creativity Score: {results['composite']:.2f}")
-    print("\nRaw Scores:")
+    output_lines.append("\nRaw Scores:")
     for k, v in results["scores"].items():
         if isinstance(v, float):
-            print(f"- {k}: {v:.2f}")
+            output_lines.append(f"- {k}: {v:.2f}")
         else:
-            print(f"- {k}: {v}")
+            output_lines.append(f"- {k}: {v}")
     
-    print("\nNormalized Scores:")
+    output_lines.append("\nNormalized Scores:")
     for k, v in results["normalized"].items():
-        print(f"- {k}: {v:.2f}")
-    print("=========================================")
+        output_lines.append(f"- {k}: {v:.2f}")
+    output_lines.append("=========================================")
+    
+    # Join and return the output string
+    return "\n".join(output_lines)
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Run the LLM Creativity Benchmark and output the results."
+    )
+    parser.add_argument(
+        "--model", 
+        type=str, 
+        default="qwen2.5:0.5b", 
+        help="Name of the model to benchmark."
+    )
+    parser.add_argument(
+        "--prompt", 
+        type=str,
+        default="A dragon guarded a treasure.",
+        help="Input prompt for the benchmark (e.g., 'A dragon guarded a treasure.')"
+    )
+
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="If set, save the results as a JSON file in the 'runs' directory."
+    )
+
+    args = parser.parse_args()
+
+    # Initialize the benchmark with the specified model.
+    benchmark = CreativityBenchmark(model_name=args.model)
+    
+    # Run the benchmark on the provided prompt.
+    results = benchmark.combined_score(args.prompt)
+    
+    # Generate the results string.
+    results_str = print_results(results)
+    
+    # Print results to console.
+    print(results_str)
+    
+    # Save the results to a file if the --save flag is provided.
+    if args.save:
+        # Generate a unique run ID using UUID.
+        run_id = uuid.uuid4().hex
+        
+        # Ensure the output directory "runs" exists.
+        output_dir = "runs"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Sanitize the model name for safe file naming.
+        safe_model_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in args.model)
+        filename = f"{safe_model_name}_{run_id}.json"
+        output_path = os.path.join(output_dir, filename)
+        
+        try:
+            with open(output_path, "w") as f:
+                json.dump(results, f, indent=4)
+            print(f"\nResults have been saved to '{output_path}'")
+        except Exception as e:
+            print(f"Error writing to file '{output_path}': {e}")
+
+
+if __name__ == "__main__":
+    main()
