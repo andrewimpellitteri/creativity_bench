@@ -30,7 +30,7 @@ pip install -r requirements.txt
 To use:
 
 ```
-usage: benchmark.py [-h] [--model MODEL] [--prompt PROMPT] [--save]
+usage: benchmark.py [-h] [--model MODEL] [--prompt PROMPT] [--save] [--use_api] [--n]
 
 Run the LLM Creativity Benchmark and output the results.
 
@@ -39,6 +39,8 @@ options:
   --model MODEL    Name of the model to benchmark.
   --prompt PROMPT  Input prompt for the benchmark (e.g., 'A dragon guarded a treasure.')
   --save           If set, save the results as a JSON file in the 'runs' directory.
+  --use_api        If set, use the OpenAI API to generate results.
+  --n              Number of times to run the benchmark on a given model.
 ```
 
 To visualize the results of all evaluation runs:

@@ -509,43 +509,52 @@ def main():
         help="If set, use the OpenAI API to generate results."
     )
 
+    parser.add_argument(
+        "--n",
+        action="store_true",
+        default=1,
+        help="Number of times to run the benchmark on a given model."
+    )
+
     args = parser.parse_args()
 
-    # Initialize the benchmark with the specified model.
-    benchmark = CreativityBenchmark(model_name=args.model, use_api=args.use_api)
-    
-    # Run the benchmark on the provided prompt.
-    results = benchmark.combined_score(args.prompt)
-    
-    # Generate the results string.
-    results_str = print_results(results)
-    
-    # Print results to console.
-    print(results_str)
-    
-    # Save the results to a file if the --save flag is provided.
-    if args.save:
-        # Generate a unique run ID using UUID.
-        run_id = uuid.uuid4().hex
-        
-        # Ensure the output directory "runs" exists.
-        output_dir = "runs"
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # Sanitize the model name for safe file naming.
-        safe_model_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in args.model)
-        filename = f"{safe_model_name}_{run_id}.json"
-        output_path = os.path.join(output_dir, filename)
+    for _ in range(args.n):
 
-        #add model name to json
-        results = { args.model: results }
+        # Initialize the benchmark with the specified model.
+        benchmark = CreativityBenchmark(model_name=args.model, use_api=args.use_api)
         
-        try:
-            with open(output_path, "w") as f:
-                json.dump(results, f, indent=4)
-            print(f"\nResults have been saved to '{output_path}'")
-        except Exception as e:
-            print(f"Error writing to file '{output_path}': {e}")
+        # Run the benchmark on the provided prompt.
+        results = benchmark.combined_score(args.prompt)
+        
+        # Generate the results string.
+        results_str = print_results(results)
+        
+        # Print results to console.
+        print(results_str)
+        
+        # Save the results to a file if the --save flag is provided.
+        if args.save:
+            # Generate a unique run ID using UUID.
+            run_id = uuid.uuid4().hex
+            
+            # Ensure the output directory "runs" exists.
+            output_dir = "runs"
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Sanitize the model name for safe file naming.
+            safe_model_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in args.model)
+            filename = f"{safe_model_name}_{run_id}.json"
+            output_path = os.path.join(output_dir, filename)
+
+            #add model name to json
+            results = { args.model: results }
+            
+            try:
+                with open(output_path, "w") as f:
+                    json.dump(results, f, indent=4)
+                print(f"\nResults have been saved to '{output_path}'")
+            except Exception as e:
+                print(f"Error writing to file '{output_path}': {e}")
 
 
 if __name__ == "__main__":
