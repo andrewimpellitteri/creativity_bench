@@ -49,7 +49,9 @@ python visualize_results.py
 
 ## Contributing
 
-Please feel free to contribute by submitting pull requests or issues. We welcome any feedback on how we can improve the benchmark suite.
+Please feel free to contribute by submitting pull requests or issues. I am hoping to implement all of the benchmarks mentioned by Gwern's post. We welcome any feedback on how we can improve the benchmark suite.
+
+Also if anyone would like to run the benchmark on different models and submit that results, please do so!
 
 ## License
 

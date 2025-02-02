@@ -217,7 +217,7 @@ class CreativityBenchmark:
             Requested edits:
             {chr(10).join(f'- {edit}' for edit in current_edits)}
             
-            Answer these questions with Yes/No:
+            Answer these questions with Yes/No and do not respond with anything else:
             1. Is the modified story still coherent and logical?
             2. Were all the requested edits applied successfully?
             3. Is the quality at least as good as the original?"""
@@ -226,7 +226,7 @@ class CreativityBenchmark:
             print(f"\nQuality check results:\n{check}")
             
             # Split into lines and clean up whitespace
-            check_lines = [line.strip() for line in check.split('\n') if line.strip()]
+            check_lines = [line.strip().lower() for line in check.split('\n') if line.strip()]
 
             # Look for explicit yes/no answers
             expected_answers = 3  # We're asking 3 questions
