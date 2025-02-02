@@ -126,7 +126,7 @@ class CreativityBenchmark:
         
         return len(words)
 
-    def telephone_game(self, seed_text, max_iter=10, similarity_threshold=0.95):
+    def telephone_game(self, seed_text, max_iter=10, semantic_similarity_threshold=0.80, edit_similarity_threshold=0.30):
         """Test creative drift through repeated paraphrasing"""
         print("\n=== Telephone Game Test ===")
         print(f"Starting with: {seed_text}")
@@ -176,7 +176,7 @@ class CreativityBenchmark:
                 print(f"Edit similarity: {edit_sim:.2f}")
                 print(f"Semantic similarity: {semantic_sim:.2f}")
                 
-                if edit_sim > similarity_threshold and semantic_sim > similarity_threshold:
+                if edit_sim > edit_similarity_threshold and semantic_sim > semantic_similarity_threshold:
                     print("\n→ Convergence detected! Stories are too similar.")
                     break
             
@@ -511,13 +511,14 @@ def main():
 
     parser.add_argument(
         "--n",
-        action="store_true",
+        type=int,
         default=1,
         help="Number of times to run the benchmark on a given model."
     )
 
     args = parser.parse_args()
 
+    print(f"Running benchmark {args.n} times...")
     for _ in range(args.n):
 
         # Initialize the benchmark with the specified model.
