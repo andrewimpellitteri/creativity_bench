@@ -45,7 +45,7 @@ To visualize the results of all evaluation runs:
 
 ```
 python visualize_results.py
-``
+```
 
 ## Contributing
 
