@@ -72,23 +72,20 @@ class CreativityBenchmark:
                 prompt=prompt,
                 options={"temperature": temperature, "max_tokens": max_tokens}
             )
+            
             text = response["response"].strip()
         
-        # Remove thinking tags and their content
-        while True:
-            start = text.lower().find("<think>")
-            if start == -1:
-                start = text.lower().find("<antthinking>")  # Also check for antthinking tags
-            if start == -1:
-                break
-                
-            end = text.lower().find("</think>", start)
-            if end == -1:
-                end = text.lower().find("</antthinking>", start)  # Check for closing antthinking tag
-            if end == -1:
-                break
-                
-            text = text[:start].strip() + " " + text[end + 8:].strip()  # +8 for </think>
+
+        start = text.lower().find("<think>")
+        if start == -1:
+            start = text.lower().find("<antthinking>")  # Also check for antthinking tags
+            
+        end = text.lower().find("</think>", start)
+        if end == -1:
+            end = text.lower().find("</antthinking>", start)  # Check for closing antthinking tag
+
+            
+        text = text[:start].strip() + " " + text[end + 8:].strip()  # +8 for </think>
             
         return text.strip()
 
@@ -113,7 +110,7 @@ class CreativityBenchmark:
                 break
             
             words.append(new_word)
-            prompt = f"The next word that comes to mind after '{new_word}' is:"
+            prompt = f"Respond with only one word and nothing else. The next word that comes to mind after '{new_word}' is:"
             pbar.update(1)
         
         pbar.close()

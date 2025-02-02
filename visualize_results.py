@@ -39,8 +39,15 @@ def plot_composite_scores(models, composites, errors, diversities):
     x = np.arange(len(models))
     width = 0.6  # Bar width
     
-    bars = plt.bar(x, composites, width, yerr=errors, 
-                  capsize=8, alpha=0.8, error_kw={'elinewidth': 2})
+    bars = plt.bar(
+        x,
+        composites,
+        width,
+        yerr=errors,
+        capsize=8,
+        alpha=0.8,
+        error_kw={'elinewidth': 2, 'ecolor': 'black'}
+    )
     
     # Add diversity indicators
     for i, div in enumerate(diversities):
@@ -55,9 +62,13 @@ def plot_composite_scores(models, composites, errors, diversities):
     plt.grid(True, axis='y', linestyle='--', alpha=0.7)
     for bar in bars:
         height = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width()/2., height,
-                 f'{height:.2f}',
-                 ha='center', va='bottom')
+        plt.text(
+            bar.get_x() + bar.get_width() / 2.,
+            height,
+            f'{height:.2f}',
+            ha='center',
+            va='bottom'
+        )
     
     plt.tight_layout()
     plt.savefig('model_comparison.png', dpi=300)

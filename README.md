@@ -3,6 +3,8 @@ A comprehensive evaluation suite for measuring creative capabilities in large la
 
 Based on [this](https://gwern.net/creative-benchmark) post by Gwern.
 
+![results](model_comparison.png)
+
 ## Key Features
 - **Free Association Test**: Measures lexical originality and vocabulary estimation
 - **Telephone Game**: Quantifies semantic drift through iterative paraphrasing
@@ -11,9 +13,11 @@ Based on [this](https://gwern.net/creative-benchmark) post by Gwern.
 - **Extreme Style Transfer Test**: Take a set of stories with genre labels; ask a LLM to summarize each one; then ask it to write a story using only the summary and a random other genre label; score based on how different the other genre versions are from the original. 
 - **Composite Creativity Score**: Combined metric aggregating multiple dimensions
 
-Supports `ollama` for local generation as well as the OpenAI API.
+Supports `ollama` for local generation as well as the OpenAI API (URL is set to huggingface).
 
 `utils.py` has some stories and genre labels for extreme generation but these are very basic and can be improved.
+
+I have only run the model on a few small models as it takes a bit to run and I am GPU poor :(
 
 ## Installation and Usage
 
