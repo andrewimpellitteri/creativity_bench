@@ -10,10 +10,14 @@ import argparse
 import json
 import os
 import uuid
+import requests
 
 class CreativityBenchmark:
-    def __init__(self, model_name):
+    def __init__(self, model_name, use_api):
         self.model = model_name
+        self.hf_token = os.getenv("HF_TOKEN")
+        self.use_api = use_api
+
         
         self.edit_requests = [
             "make it more humorous",
@@ -34,12 +38,41 @@ class CreativityBenchmark:
         ]
     
     def _generate(self, prompt, temperature=0.7, max_tokens=600):
-        response = ollama.generate(
-            model=self.model,
-            prompt=prompt,
-            options={"temperature": temperature, "max_tokens": max_tokens}
-        )
-        text = response["response"].strip()
+
+        if self.use_api:
+            if not self.hf_token:
+                raise ValueError("Hugging Face API token not provided. Set it during initialization or via HF_API_TOKEN environment variable.")
+
+            # Hugging Face API endpoint
+            API_URL = f"https://api-inference.huggingface.co/models/{self.model}"
+            
+            headers = {"Authorization": f"Bearer {self.hf_token}"}
+            payload = {
+                "inputs": prompt,
+                "parameters": {
+                    "temperature": temperature,
+                    "max_new_tokens": max_tokens,
+                    "return_full_text": False  # Only return the generated text
+                }
+            }
+            
+            response = requests.post(API_URL, headers=headers, json=payload)
+            
+            if response.status_code != 200:
+                raise Exception(f"API request failed with status code {response.status_code}: {response.text}")
+                
+            # Extract generated text from response
+            try:
+                text = response.json()[0]["generated_text"]
+            except (KeyError, IndexError) as e:
+                raise Exception(f"Unexpected API response format: {response.text}") from e
+        else:  
+            response = ollama.generate(
+                model=self.model,
+                prompt=prompt,
+                options={"temperature": temperature, "max_tokens": max_tokens}
+            )
+            text = response["response"].strip()
         
         # Remove thinking tags and their content
         while True:
@@ -70,7 +103,7 @@ class CreativityBenchmark:
         
         prompt = "Freely associate lists of words or numbers— just say whatever word next comes to mind. Respond only with one word and nothing else."
         for i in range(max_iter):
-            new_word = self._generate(prompt).split()[0].strip('.,!?;:"').lower()
+            new_word = self._generate(prompt).split()[0].strip('.,!?;:*"').lower()
             frequencies[new_word] += 1
             
             print(f"\nWord {i+1}: {new_word}")
@@ -116,6 +149,8 @@ class CreativityBenchmark:
                 f"Expand this summary into a detailed story:\n{current}",
                 temperature=0.8
             )
+
+            print(expanded)
             
             # Validate expanded response
             if not expanded or not expanded.strip():
@@ -124,9 +159,8 @@ class CreativityBenchmark:
             print(f"Expanded story:\n{expanded}")
             
             current = self._generate(
-                f"Summarize this story in one sentence:\n{expanded}",
-                temperature=0.3,
-                max_tokens=50
+                prompt=f"Summarize this story in one sentence:\n{expanded}",
+                temperature=0.3
             )
             
             # Validate summary response
@@ -472,10 +506,16 @@ def main():
         help="If set, save the results as a JSON file in the 'runs' directory."
     )
 
+    parser.add_argument(
+        "--use_api",
+        action="store_true",
+        help="If set, use the OpenAI API to generate results."
+    )
+
     args = parser.parse_args()
 
     # Initialize the benchmark with the specified model.
-    benchmark = CreativityBenchmark(model_name=args.model)
+    benchmark = CreativityBenchmark(model_name=args.model, use_api=args.use_api)
     
     # Run the benchmark on the provided prompt.
     results = benchmark.combined_score(args.prompt)
@@ -499,6 +539,9 @@ def main():
         safe_model_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in args.model)
         filename = f"{safe_model_name}_{run_id}.json"
         output_path = os.path.join(output_dir, filename)
+
+        #add model name to json
+        results = { args.model: results }
         
         try:
             with open(output_path, "w") as f:

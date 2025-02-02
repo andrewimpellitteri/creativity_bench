@@ -11,7 +11,9 @@ Based on [this](https://gwern.net/creative-benchmark) post by Gwern.
 - **Extreme Style Transfer Test**: Take a set of stories with genre labels; ask a LLM to summarize each one; then ask it to write a story using only the summary and a random other genre label; score based on how different the other genre versions are from the original. 
 - **Composite Creativity Score**: Combined metric aggregating multiple dimensions
 
-Currently only supports `ollama` for local generation but will update to work OpenAI API and others soon.
+Supports `ollama` for local generation as well as the OpenAI API.
+
+`utils.py` has some stories and genre labels for extreme generation but these are very basic and can be improved.
 
 ## Installation and Usage
 
@@ -34,6 +36,12 @@ options:
   --prompt PROMPT  Input prompt for the benchmark (e.g., 'A dragon guarded a treasure.')
   --save           If set, save the results as a JSON file in the 'runs' directory.
 ```
+
+To visualize the results of all evaluation runs:
+
+```
+python visualize_results.py
+``
 
 ## Contributing
 
