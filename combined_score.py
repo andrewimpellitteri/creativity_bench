@@ -1,4 +1,4 @@
-from utils import sample_stories, genre_list
+from config import sample_stories, genre_list
 
 class CombinedScoreMixin:
     def combined_score(self, seed_text, weights=None):

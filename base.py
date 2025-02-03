@@ -10,7 +10,7 @@ class CreativityBenchmarkBase:
         self.hf_token = os.getenv("HF_TOKEN")
         self.use_api = use_api
 
-    def _generate(self, prompt, temperature=0.7, max_tokens=2000):
+    def _generate(self, prompt, temperature=0.7, max_tokens=800):
         if self.use_api:
             if not self.hf_token:
                 raise ValueError("Hugging Face API token not provided.")

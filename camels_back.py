@@ -56,28 +56,21 @@ class CamelBackMixin:
             
             check = self._generate(check_prompt, temperature=0.1)
             print(f"\nQuality check results:\n{check}")
-
+            
             check = check.lower()
             
             # Split into lines and clean up whitespace
             check_lines = [line.strip() for line in check.split('\n') if line.strip()]
 
-            # Look for explicit yes/no answers
-            expected_answers = 3  # We're asking 3 questions
-            yes_count = 0
-            found_answers = 0
-
-            for line in check_lines:
-                # Look for numbered responses or lines containing yes/no
-                if ('yes' in line or 'no' in line) and any(str(i) in line for i in range(1, expected_answers + 1)):
-                    found_answers += 1
-                    if 'yes' in line:
-                        yes_count += 1
+            # Take the first three lines as answers
+            answers = check_lines[:3]
+            found_answers = len(answers)
+            yes_count = sum(1 for line in answers if 'yes' in line)
 
             # Quality check passes if:
-            # 1. We found responses to all questions
-            # 2. All responses were 'yes'
-            if found_answers == expected_answers and yes_count == expected_answers:
+            # 1. We found three answers
+            # 2. All answers contain 'yes'
+            if found_answers == 3 and yes_count == 3:
                 story = modified_story
                 coherent_edits += 1
                 pbar.update(1)

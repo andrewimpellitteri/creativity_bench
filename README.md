@@ -15,7 +15,7 @@ Based on [this](https://gwern.net/creative-benchmark) post by Gwern.
 
 Supports `ollama` for local generation as well as the OpenAI API (URL is set to huggingface).
 
-`utils.py` has some stories and genre labels for extreme generation but these are very basic and can be improved.
+`config.py` has some stories and genre labels for extreme generation but these are very basic and can be improved.
 
 I have only run the model on a few small models as it takes a bit to run and I am GPU poor :(
 
