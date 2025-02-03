@@ -27,20 +27,20 @@ Clone the repository and run:
 pip install -r requirements.txt
 ```
 
-To use:
+Set HF_TOKEN to your huggingface token as an environment variable and run `cli.py`:
 
 ```
-usage: benchmark.py [-h] [--model MODEL] [--prompt PROMPT] [--save] [--use_api] [--n]
+usage: cli.py [-h] [--model MODEL] [--prompt PROMPT] [--save] [--use_api] [--n N]
 
 Run the LLM Creativity Benchmark and output the results.
 
 options:
   -h, --help       show this help message and exit
   --model MODEL    Name of the model to benchmark.
-  --prompt PROMPT  Input prompt for the benchmark (e.g., 'A dragon guarded a treasure.')
-  --save           If set, save the results as a JSON file in the 'runs' directory.
-  --use_api        If set, use the OpenAI API to generate results.
-  --n              Number of times to run the benchmark on a given model.
+  --prompt PROMPT  Input prompt for the benchmark
+  --save           Save results as JSON file in 'runs' directory
+  --use_api        Use Hugging Face API for generation
+  --n N            Number of benchmark runs
 ```
 
 To visualize the results of all evaluation runs:
