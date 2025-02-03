@@ -10,7 +10,7 @@ class CreativityBenchmarkBase:
         self.hf_token = os.getenv("HF_TOKEN")
         self.use_api = use_api
 
-    def _generate(self, prompt, temperature=0.7, max_tokens=600):
+    def _generate(self, prompt, temperature=0.7, max_tokens=2000):
         if self.use_api:
             if not self.hf_token:
                 raise ValueError("Hugging Face API token not provided.")
@@ -57,11 +57,6 @@ class CreativityBenchmarkBase:
                 raise Exception(f"Ollama generation failed: {str(e)}")
 
         # Remove all think/antthinking tags and their content using regex
-        text = re.sub(
-        r'<\s*(think|antthinking)\b[^>]*>.*?<\/\s*\1\s*>',
-        '',
-        text,
-        flags=re.IGNORECASE | re.DOTALL
-        ).strip()
+        text = re.sub(r'^.*<\/\s*think\s*>', '', text, flags=re.DOTALL | re.IGNORECASE).strip()
 
         return text
