@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import numpy as np
-from sentence_transformers import SentenceTransformer
 from benchmark import CreativityBenchmark
 
 class TestTelephoneGame(unittest.TestCase):

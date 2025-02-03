@@ -2,7 +2,6 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 import glob
-import os
 
 def load_all_json_data():
     """Load all JSON files from runs/ directory and aggregate data by model name"""
