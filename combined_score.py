@@ -1,11 +1,11 @@
-from config import sample_stories, genre_list
+from config import sample_stories, genre_list, edit_requests
 
 class CombinedScoreMixin:
     def combined_score(self, seed_text, weights=None):
         print("\n====== Running Creativity Benchmark Suite =====")
         fa_score, fa_total = self.free_association()
         tel_score = self.telephone_game(seed_text)
-        cb_score = self.camels_back(seed_text)
+        cb_score = self.camels_back(seed_text, edit_requests)
         volume_score = self.dont_repeat_yourself()
         extreme_score = self.extreme_style_transfer(sample_stories, genre_list)
         scores = {

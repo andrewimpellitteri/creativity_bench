@@ -43,7 +43,8 @@ class DiversityMixin:
             print(f"Generated story ({len(text.split())} words):\n{text}")
             
             generations.append(text)
-            embeddings.append(ollama.embeddings(model=embedding_model, prompt=text).embedding)
+
+            embeddings.append(ollama.embeddings(model="nomic-embed-text", prompt=text).embedding)
             pbar.update(1)
         
         pbar.close()

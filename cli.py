@@ -48,6 +48,8 @@ def main():
         )
         results = benchmark.combined_score(args.prompt)
 
+        print("printing results..")
+
         print_results(results)
         
         if args.save:

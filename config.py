@@ -31,3 +31,21 @@ genre_list = [
     "urban horror", 
     "magical realism"
 ]
+
+edit_requests = [
+        "make it more humorous",
+        "add more suspense",
+        "make it more poetic",
+        "add a plot twist",
+        "change the tone to be more serious",
+        "add more descriptive details",
+        "change the perspective to first person",
+        "add dialogue",
+        "make it more concise",
+        "add more emotional depth",
+        "change the setting",
+        "add a new character",
+        "change the ending",
+        "add more action",
+        "make it more mysterious"
+        ]
