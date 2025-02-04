@@ -2,6 +2,7 @@ import random
 from tqdm.auto import tqdm
 
 class CamelBackMixin:
+
     edit_requests = [
         "make it more humorous",
         "add more suspense",
@@ -18,9 +19,11 @@ class CamelBackMixin:
         "change the ending",
         "add more action",
         "make it more mysterious"
-    ]
+        ]
+
 
     def camels_back(self, seed_text, max_edits=10):
+
         """Test story coherence under diverse modifications"""
         print("\n=== Camel's Back Test ===")
         print(f"Starting story: {seed_text}")

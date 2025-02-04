@@ -6,7 +6,7 @@ import ollama
 from collections import Counter
 
 class DiversityMixin:
-    def dont_repeat_yourself(self, template="Write a story about {}", samples=5, min_length=100):
+    def dont_repeat_yourself(self, template="Write a story about {}", samples=5, min_length=100, embedding_model="snowflake-arctic-embed"):
         """Test diversity of outputs with controlled randomness and volume-based scoring"""
         print("\n=== Don't Repeat Yourself Test ===")
         
@@ -43,7 +43,7 @@ class DiversityMixin:
             print(f"Generated story ({len(text.split())} words):\n{text}")
             
             generations.append(text)
-            embeddings.append(ollama.embeddings(model='nomic-embed-text', prompt=text).embedding)
+            embeddings.append(ollama.embeddings(model=embedding_model, prompt=text).embedding)
             pbar.update(1)
         
         pbar.close()

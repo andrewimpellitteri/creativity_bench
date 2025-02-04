@@ -9,7 +9,8 @@ class StyleTransferMixin:
         def extreme_style_transfer(self, stories, genres,
                                summary_prompt_template="Summarize the following story:\n\n{}",
                                style_prompt_template="Using only the summary below and the target genre '{}', write a new story:\n\nSummary: {}\n",
-                               min_summary_length=20):
+                               min_summary_length=20,
+                               embedding_model="snowflake-arctic-embed"):
             """
             Extreme Style Transfer Benchmark
 
@@ -62,8 +63,8 @@ class StyleTransferMixin:
 
                 # Step 4: Compute the difference score between the original and transferred stories.
                 # Here we assume the existence of an embedding API via ollama.embeddings.
-                orig_embedding = ollama.embeddings(model='nomic-embed-text', prompt=orig_text).embedding
-                transferred_embedding = ollama.embeddings(model='nomic-embed-text', prompt=transferred_text).embedding
+                orig_embedding = ollama.embeddings(model=embedding_model, prompt=orig_text).embedding
+                transferred_embedding = ollama.embeddings(model=embedding_model, prompt=transferred_text).embedding
                 score = cosine(orig_embedding, transferred_embedding)  # cosine distance; higher means more different
                 transfer_scores.append(score)
 
