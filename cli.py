@@ -15,12 +15,7 @@ def main():
         default="qwen2.5:0.5b", 
         help="Name of the model to benchmark."
     )
-    parser.add_argument(
-        "--prompt", 
-        type=str,
-        default="A dragon guarded a treasure. Story: ",
-        help="Input prompt for the benchmark"
-    )
+
     parser.add_argument(
         "--save",
         action="store_true",
@@ -46,7 +41,7 @@ def main():
             model_name=args.model, 
             use_api=args.use_api
         )
-        results = benchmark.combined_score(args.prompt)
+        results = benchmark.combined_score()
 
         print("printing results..")
 

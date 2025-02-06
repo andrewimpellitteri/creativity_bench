@@ -1,9 +1,13 @@
-from config import sample_stories, genre_list, edit_requests
+from config import sample_stories, genre_list, edit_requests, story_prompts
+import random
 
 
 class CombinedScoreMixin:
-    def combined_score(self, seed_text, weights=None):
+    def combined_score(self, weights=None):
         print("\n====== Running Creativity Benchmark Suite =====")
+
+        seed_text = random.choice(story_prompts)
+
         fa_score, fa_total = self.free_association()
         tel_score = self.telephone_game(seed_text)
         cb_score = self.camels_back(seed_text, edit_requests)

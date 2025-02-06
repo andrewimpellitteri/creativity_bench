@@ -37,7 +37,6 @@ Run the LLM Creativity Benchmark and output the results.
 options:
   -h, --help       show this help message and exit
   --model MODEL    Name of the model to benchmark.
-  --prompt PROMPT  Input prompt for the benchmark
   --save           Save results as JSON file in 'runs' directory
   --use_api        Use Hugging Face API for generation
   --n N            Number of benchmark runs
