@@ -26,6 +26,8 @@ class TelephoneGameMixin:
                 f"Expand this summary into a detailed story:\n{current}",
                 temperature=0.8
             )
+
+            print(rf"Raw expanded {expanded}")
             if not expanded.strip():
                 raise ValueError(f"Empty expanded story in iteration {i+1}")
             print(f"Expanded:\n{expanded}")

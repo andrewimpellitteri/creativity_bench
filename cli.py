@@ -18,7 +18,7 @@ def main():
     parser.add_argument(
         "--prompt", 
         type=str,
-        default="A dragon guarded a treasure.",
+        default="A dragon guarded a treasure. Story: ",
         help="Input prompt for the benchmark"
     )
     parser.add_argument(

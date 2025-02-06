@@ -1,5 +1,6 @@
 from config import sample_stories, genre_list, edit_requests
 
+
 class CombinedScoreMixin:
     def combined_score(self, seed_text, weights=None):
         print("\n====== Running Creativity Benchmark Suite =====")
@@ -13,9 +14,20 @@ class CombinedScoreMixin:
             "telephone_game": tel_score,
             "camels_back": cb_score,
             "diversity": volume_score,
-            "extreme_style_transfer": extreme_score
+            "extreme_style_transfer": extreme_score,
         }
-        normalized = {k: v / 100 if k == 'free_association' else v / 10 for k, v in scores.items()}
-        weights = weights or {k: 1/len(normalized) for k in normalized}
+        normalized = {
+            k: v / 100 if k == "free_association" else v / 10 for k, v in scores.items()
+        }
+        # weights = weights or {k: 1/len(normalized) for k in normalized}
+
+        weights = {
+            "free_association": 0.25,
+            "telephone_game": 0.25,
+            "camels_back": 0.05,
+            "diversity": 0.25,
+            "extreme_style_transfer": 0.20,
+        }
+
         composite = sum(normalized[k] * weights[k] for k in normalized)
         return {"scores": scores, "normalized": normalized, "composite": composite}
