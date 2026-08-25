@@ -25,11 +25,13 @@ DEFAULT_WEIGHTS = {
     "style_transfer": 0.20,
     "odd_one_out": 0.20,
     "subversion": 0.20,
+    "shaggy_dog": 0.20,
 }
 
 # Task sizes: (full, fast)
 _SIZES = {
     "n_words": (40, 10),
+    "judges": (5, 3),
     "max_iter": (8, 3),
     "max_edits": (8, 3),
     "samples": (8, 4),
@@ -109,6 +111,7 @@ def run_benchmark(
             rng=rng,
         ),
         "diversity": dict(embedder=embedder, samples=size["samples"], rng=rng),
+        "shaggy_dog": dict(judge_client=judge_client, k=size["judges"], rng=rng),
         "style_transfer": dict(
             embedder=embedder,
             stories=data.SAMPLE_STORIES[: size["n_stories"]],

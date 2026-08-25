@@ -3,6 +3,7 @@ from .camels_back import camels_back
 from .diversity import dont_repeat_yourself
 from .free_association import free_association
 from .odd_one_out import odd_one_out
+from .shaggy_dog import shaggy_dog
 from .style_transfer import style_transfer
 from .subversion import subversion
 from .telephone import telephone_game
@@ -15,6 +16,7 @@ TASKS = {
     "diversity": dont_repeat_yourself,
     "style_transfer": style_transfer,
     "subversion": subversion,
+    "shaggy_dog": shaggy_dog,
 }
 
 __all__ = ["TaskResult", "TASKS", *TASKS.keys()]
