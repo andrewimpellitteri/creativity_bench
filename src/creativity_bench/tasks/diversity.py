@@ -1,8 +1,21 @@
 """Don't repeat yourself: how different are stories generated from similar prompts?
 
-Generates one story per prompt (rotating through concept categories) and
-scores the mean pairwise cosine distance between story embeddings. Higher
-means the model spreads its outputs over a wider region of idea-space.
+Gwern, "Don't Repeat Yourself" (https://gwern.net/creative-benchmark#possible-tasks,
+Iteration section): "measure mode-collapse by injecting controlled randomness
+into the prompt, such as a random integer/object/name/concept, and asking for
+various kinds of completion. The score is the total volume by embedding."
+
+Implementation notes:
+- Controlled randomness is injected via data.DIVERSITY_CONCEPTS, which covers
+  Gwern's four kinds (integer/object/name/concept).
+- # NOTE(gwern): the spec's score is "the total volume by embedding" (e.g. a
+  hypervolume of the sample cloud). We use mean pairwise cosine distance as a
+  tractable proxy for that volume; a true volume measure would be an
+  architectural addition (convex-hull / determinant-based scoring).
+- # NOTE(gwern): Gwern asks for "various kinds of completion"; this task
+  currently fixes the completion kind to a short story via ``template`` for
+  cross-model comparability. Supporting multiple completion kinds per run is
+  left to the caller through the template parameter.
 """
 
 from __future__ import annotations
@@ -36,6 +49,8 @@ def dont_repeat_yourself(
     stories: list[dict] = []
 
     for i in tqdm(range(samples), desc="Diversity", leave=False):
+        # Controlled randomness: rotate kinds, sample a random concept within
+        # each kind (random integer/object/name/concept per Gwern).
         category = categories[i % len(categories)]
         concept = rng.choice(DIVERSITY_CONCEPTS[category])
         prompt = template.format(concept)
