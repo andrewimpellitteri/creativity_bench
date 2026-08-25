@@ -1,0 +1,16 @@
+from .base import TaskResult
+from .camels_back import camels_back
+from .diversity import dont_repeat_yourself
+from .free_association import free_association
+from .style_transfer import style_transfer
+from .telephone import telephone_game
+
+TASKS = {
+    "free_association": free_association,
+    "telephone": telephone_game,
+    "camels_back": camels_back,
+    "diversity": dont_repeat_yourself,
+    "style_transfer": style_transfer,
+}
+
+__all__ = ["TaskResult", "TASKS", *TASKS.keys()]
