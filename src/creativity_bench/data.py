@@ -80,7 +80,16 @@ GENRES = [
     "western",
 ]
 
+# Gwern, "Camel's Back" (https://gwern.net/creative-benchmark#possible-tasks):
+# draw edits from "a big list of possible ways to modify a sample". Gwern's
+# own examples ("make it rhyme", "add more cowbell", "rewrite as noir
+# detective mystery", "translate into Japanese") are included verbatim below;
+# arbitrary, even absurd, requests are the point of the stress test.
 EDIT_REQUESTS = [
+    "make it rhyme",
+    "add more cowbell",
+    "rewrite it as a noir detective mystery",
+    "translate it into Japanese",
     "make it more humorous",
     "add more suspense",
     "make it more poetic",
@@ -111,7 +120,32 @@ STORY_PROMPTS = [
     "A message in a bottle washes ashore from the future.",
 ]
 
+# Gwern, "Don't Repeat Yourself" (https://gwern.net/creative-benchmark#possible-tasks):
+# "measure mode-collapse by injecting controlled randomness into the prompt,
+# such as a random integer/object/name/concept". The pools below cover all
+# four kinds Gwern names; one entry is sampled per completion.
 DIVERSITY_CONCEPTS = {
+    "numbers": [
+        "the number 17",
+        "the number 4096",
+        "an odd prime",
+        "a perfect square",
+        "half of infinity",
+    ],
+    "names": [
+        "a woman named Ophelia",
+        "a man named Kwame",
+        "a child named Ines",
+        "a stranger named Dmitri",
+        "a lighthouse keeper named Maren",
+    ],
+    "objects": [
+        "a cracked pocket watch",
+        "a brass telescope",
+        "a paper umbrella",
+        "a locked lunchbox",
+        "a typewriter with no ribbon",
+    ],
     "sci_fi": [
         "a time machine",
         "an alien artifact",

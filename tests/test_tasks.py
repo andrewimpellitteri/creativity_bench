@@ -36,9 +36,11 @@ def test_free_association_all_unique():
     )
     client = FakeClient(lambda _: next(words))
     result = free_association(client, n_words=10)
-    assert result.score == 1.0
+    assert result.score == 1.0  # no repetition within the window
     assert result.metrics["unique_words"] == 10
     assert result.metrics["first_repeat_index"] is None
+    # All singletons -> Chao1 estimates many unseen species: n + n*(n-1)/2.
+    assert result.metrics["chao1_estimate"] == pytest.approx(55.0)
 
 
 def test_free_association_with_repeats():
@@ -48,7 +50,10 @@ def test_free_association_with_repeats():
     result = free_association(client, n_words=5)
     assert result.metrics["unique_words"] == 3
     assert result.metrics["first_repeat_index"] == 2
-    assert result.score == pytest.approx(3 / 5)
+    # Score is time to first repetition (2 of 5 turns), not unique/calls.
+    assert result.score == pytest.approx(2 / 5)
+    # Chao1: observed 3, one singleton (cherry), two doubletons -> 3 + 1/4.
+    assert result.metrics["chao1_estimate"] == pytest.approx(3.25)
 
 
 def test_free_association_strips_noise():
@@ -61,8 +66,9 @@ def test_free_association_strips_noise():
 # --- telephone game ---------------------------------------------------------
 
 
-def test_telephone_converges_when_summary_stops_changing():
-    # Model always produces the same summary -> semantic and lexical sim are 1.0
+def test_telephone_converges_when_expansion_stops_changing():
+    # Model always produces the same story -> successive expansions are
+    # exactly identical -> fixed point on iteration 0.
     def responder(messages):
         prompt = messages[-1]["content"]
         return "A cat chased a mouse." if "Summarize" in prompt else "story text"
@@ -70,8 +76,10 @@ def test_telephone_converges_when_summary_stops_changing():
     client = FakeClient(responder)
     embedder = FakeEmbedder(fixed={"cat": np.array([1.0, 0.0])})
     result = telephone_game(client, embedder, seed_text="A cat chased a mouse.", max_iter=5)
-    assert result.metrics["iterations_survived"] == 0
-    assert result.score == 0.0
+    # Fixed point found when the 2nd expansion matches the 1st.
+    assert result.metrics["iterations_survived"] == 1
+    assert result.score == pytest.approx(1 / 5)
+    assert result.details["transcript"][-1]["exact_match"] is True
 
 
 def test_telephone_survives_when_drifting():
@@ -80,12 +88,13 @@ def test_telephone_survives_when_drifting():
     def responder(messages):
         prompt = messages[-1]["content"]
         if "Summarize" in prompt:
-            counter["n"] += 1
             return f"A completely different summary number {counter['n']}."
-        return "story text"
+        # Expansions differ every round, so no fixed point is ever reached.
+        counter["n"] += 1
+        return f"A wholly unique story number {counter['n']} with fresh words."
 
     client = FakeClient(responder)
-    # Hash-based embeddings: distinct summaries land far apart -> never converges
+    # Hash-based embeddings: distinct expansions land far apart -> never converges
     result = telephone_game(client, FakeEmbedder(), seed_text="seed story", max_iter=4)
     assert result.metrics["iterations_survived"] == 4
     assert result.score == 1.0
@@ -106,7 +115,14 @@ def make_judge(verdicts):
 
 
 def test_camels_back_counts_rounds_until_failure():
-    client = FakeClient(lambda _: "a story, slightly modified")
+    counter = {"n": 0}
+
+    def responder(_):
+        # Each edit genuinely changes the story (no accidental fixed point).
+        counter["n"] += 1
+        return f"a story, slightly modified, version {counter['n']}"
+
+    client = FakeClient(responder)
     judge = make_judge([PASS_VERDICT, PASS_VERDICT, FAIL_VERDICT])
     result = camels_back(
         client,
@@ -122,7 +138,13 @@ def test_camels_back_counts_rounds_until_failure():
 
 
 def test_camels_back_perfect_run():
-    client = FakeClient(lambda _: "modified story")
+    counter = {"n": 0}
+
+    def responder(_):
+        counter["n"] += 1
+        return f"modified story {counter['n']}"
+
+    client = FakeClient(responder)
     judge = make_judge([PASS_VERDICT] * 3)
     result = camels_back(
         client,
@@ -133,6 +155,24 @@ def test_camels_back_perfect_run():
         rng=random.Random(0),
     )
     assert result.score == 1.0
+
+
+def test_camels_back_stops_when_sample_stops_changing():
+    # Gwern: run ends "until the sample stops changing (like Telephone)"
+    # because the LLM has given up and echoes the story back untouched.
+    client = FakeClient(lambda _: "the same story")
+    judge = make_judge([PASS_VERDICT])
+    result = camels_back(
+        client,
+        judge,
+        seed_text="premise",
+        edit_requests=["a", "b", "c", "d"],
+        max_edits=4,
+        rng=random.Random(0),
+    )
+    assert result.metrics["rounds_survived"] == 0
+    assert result.metrics["stopped_changing"] is True
+    assert len(result.details["rounds"]) == 1
 
 
 # --- diversity --------------------------------------------------------------

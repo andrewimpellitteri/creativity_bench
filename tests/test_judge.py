@@ -6,11 +6,21 @@ from creativity_bench.judge import judge_edit
 
 def test_judge_parses_clean_json():
     client = FakeClient(
+        lambda _: '{"coherent": true, "edits_applied": true, "quality_maintained": true}'
+    )
+    verdict = judge_edit(client, "orig", "mod", ["add humor"])
+    assert verdict.coherent and verdict.edits_applied and verdict.quality_maintained
+    assert verdict.passed
+
+
+def test_low_quality_edit_fails_even_if_applied():
+    # Gwern: the run ends when "the edit fails or the quality is low", so a
+    # correctly-applied but low-quality edit does not pass.
+    client = FakeClient(
         lambda _: '{"coherent": true, "edits_applied": true, "quality_maintained": false}'
     )
     verdict = judge_edit(client, "orig", "mod", ["add humor"])
-    assert verdict.coherent and verdict.edits_applied and not verdict.quality_maintained
-    assert verdict.passed
+    assert not verdict.passed
 
 
 def test_judge_parses_json_with_surrounding_text():
