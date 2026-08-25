@@ -66,8 +66,9 @@ def test_free_association_strips_noise():
 # --- telephone game ---------------------------------------------------------
 
 
-def test_telephone_converges_when_summary_stops_changing():
-    # Model always produces the same summary -> semantic and lexical sim are 1.0
+def test_telephone_converges_when_expansion_stops_changing():
+    # Model always produces the same story -> successive expansions are
+    # exactly identical -> fixed point on iteration 0.
     def responder(messages):
         prompt = messages[-1]["content"]
         return "A cat chased a mouse." if "Summarize" in prompt else "story text"
@@ -75,8 +76,10 @@ def test_telephone_converges_when_summary_stops_changing():
     client = FakeClient(responder)
     embedder = FakeEmbedder(fixed={"cat": np.array([1.0, 0.0])})
     result = telephone_game(client, embedder, seed_text="A cat chased a mouse.", max_iter=5)
-    assert result.metrics["iterations_survived"] == 0
-    assert result.score == 0.0
+    # Fixed point found when the 2nd expansion matches the 1st.
+    assert result.metrics["iterations_survived"] == 1
+    assert result.score == pytest.approx(1 / 5)
+    assert result.details["transcript"][-1]["exact_match"] is True
 
 
 def test_telephone_survives_when_drifting():
@@ -85,12 +88,13 @@ def test_telephone_survives_when_drifting():
     def responder(messages):
         prompt = messages[-1]["content"]
         if "Summarize" in prompt:
-            counter["n"] += 1
             return f"A completely different summary number {counter['n']}."
-        return "story text"
+        # Expansions differ every round, so no fixed point is ever reached.
+        counter["n"] += 1
+        return f"A wholly unique story number {counter['n']} with fresh words."
 
     client = FakeClient(responder)
-    # Hash-based embeddings: distinct summaries land far apart -> never converges
+    # Hash-based embeddings: distinct expansions land far apart -> never converges
     result = telephone_game(client, FakeEmbedder(), seed_text="seed story", max_iter=4)
     assert result.metrics["iterations_survived"] == 4
     assert result.score == 1.0
