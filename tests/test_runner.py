@@ -44,6 +44,7 @@ def test_run_benchmark_end_to_end(tmp_path, capsys):
         "camels_back",
         "diversity",
         "style_transfer",
+        "shaggy_dog",
     }
     assert 0.0 <= result.composite <= 1.0
     for task_result in result.task_results.values():
