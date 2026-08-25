@@ -67,3 +67,10 @@ def test_tracks_usage(client):
     assert client.usage.requests == 1
     assert client.usage.prompt_tokens == 10
     assert client.usage.completion_tokens == 5
+
+
+def test_openrouter_provider_preset():
+    provider = resolve_provider("openrouter")
+    assert provider.name == "openrouter"
+    assert provider.base_url == "https://openrouter.ai/api/v1"
+    assert provider.api_key_env == "OPENROUTER_API_KEY"

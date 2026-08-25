@@ -23,6 +23,7 @@ PROVIDERS: dict[str, Provider] = {
     "zai": Provider("zai", "https://api.z.ai/api/paas/v4", "ZAI_API_KEY"),
     # GLM Coding Plan keys only work against the coding endpoint:
     "zai-coding": Provider("zai-coding", "https://api.z.ai/api/coding/paas/v4", "ZAI_API_KEY"),
+    "openrouter": Provider("openrouter", "https://openrouter.ai/api/v1", "OPENROUTER_API_KEY"),
     "custom": Provider("custom", None, "LLM_API_KEY"),
 }
 
