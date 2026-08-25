@@ -1,5 +1,18 @@
 """Extreme style transfer: summarize a story, rewrite it in a different genre.
 
+Gwern, "Extreme Style Transfer" (https://gwern.net/creative-benchmark#possible-tasks,
+Style Flexibility section): "take a set of stories with genre labels; ask an
+LLM to summarize each one; then ask it to write a story using only the summary
+and a random other genre label; score based on how different the other genre
+versions are from the original."
+
+Key rationale preserved in this implementation (see prompt below): "This is
+better than a simple zero-shot text style transfer prompt like 'rewrite the
+following pastoral fantasy as a cyberpunk story', because boiling it down to
+a summary forbids relatively simple transformations like just swapping out
+all the adjectives." The writer model therefore sees ONLY the summary plus
+the random other genre label -- never the original text.
+
 Score is the mean embedding distance between the original and the transferred
 story (divergence). Fidelity to the summary is reported alongside so a model
 can't score high by simply ignoring the plot.
@@ -40,7 +53,10 @@ def style_transfer(
             max_tokens=2000,
         )
         candidates = [genre for genre in genres if genre != story["genre"]]
+        # "a random other genre label": target must differ from the original.
         target_genre = rng.choice(candidates)
+        # Only the summary + genre label are shown, never the original text:
+        # the summary is what forbids cheap adjective-swap transformations.
         transferred = client.generate(
             f"Using only the summary below, write a new short story in the genre "
             f"'{target_genre}'.\n\nSUMMARY:\n{summary}",

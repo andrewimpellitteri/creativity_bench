@@ -2,6 +2,12 @@
 
 Implemented directly (no external NLP deps): the strings compared here are
 one-to-two-sentence summaries, so O(n*m) dynamic programming is plenty fast.
+
+Gwern (https://gwern.net/creative-benchmark#possible-tasks, "Ranking/Distance
+Metrics") names embeddings as a core primitive: "Embeddings provide direct
+quantitative distance measurements between pairs of points." The cosine
+helpers below implement that; the lexical helpers back the Telephone Game's
+edit-distance fallback.
 """
 
 from __future__ import annotations
@@ -52,7 +58,12 @@ def rouge_l_f1(hypothesis: str, reference: str) -> float:
 
 
 def damerau_levenshtein_similarity(a: str, b: str) -> float:
-    """1 - normalized optimal-string-alignment distance over characters."""
+    """1 - normalized optimal-string-alignment distance over characters.
+
+    Gwern's Telephone Game spec (https://gwern.net/creative-benchmark#possible-tasks)
+    names edit distance as the sanctioned fallback when exact text match is
+    too strict for fixed-point detection; this and lexical_similarity below
+    serve that role."""
     if not a and not b:
         return 1.0
     if not a or not b:
