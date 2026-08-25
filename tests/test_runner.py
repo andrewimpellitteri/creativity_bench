@@ -1,11 +1,11 @@
 import json
 
 import pytest
+from conftest import FakeClient, FakeEmbedder
 
 from creativity_bench.runner import composite_score, print_results, run_benchmark, save_run
 from creativity_bench.tasks.base import TaskResult
 from creativity_bench.visualize import load_runs
-from conftest import FakeClient, FakeEmbedder
 
 PASS_VERDICT = '{"coherent": true, "edits_applied": true, "quality_maintained": true}'
 
@@ -39,7 +39,11 @@ def test_run_benchmark_end_to_end(tmp_path, capsys):
     result = run_benchmark(client, client, FakeEmbedder(), seed=42, fast=True)
 
     assert set(result.task_results) == {
-        "free_association", "telephone", "camels_back", "diversity", "style_transfer",
+        "free_association",
+        "telephone",
+        "camels_back",
+        "diversity",
+        "style_transfer",
     }
     assert 0.0 <= result.composite <= 1.0
     for task_result in result.task_results.values():
@@ -60,9 +64,7 @@ def test_run_benchmark_end_to_end(tmp_path, capsys):
 
 def test_run_benchmark_task_subset():
     client = FakeClient(full_responder)
-    result = run_benchmark(
-        client, client, FakeEmbedder(), tasks=["diversity"], seed=1, fast=True
-    )
+    result = run_benchmark(client, client, FakeEmbedder(), tasks=["diversity"], seed=1, fast=True)
     assert list(result.task_results) == ["diversity"]
 
 
@@ -74,12 +76,20 @@ def test_run_benchmark_rejects_unknown_task():
 
 def test_run_benchmark_reproducible_with_seed():
     r1 = run_benchmark(
-        FakeClient(full_responder), FakeClient(full_responder), FakeEmbedder(),
-        tasks=["camels_back"], seed=7, fast=True,
+        FakeClient(full_responder),
+        FakeClient(full_responder),
+        FakeEmbedder(),
+        tasks=["camels_back"],
+        seed=7,
+        fast=True,
     )
     r2 = run_benchmark(
-        FakeClient(full_responder), FakeClient(full_responder), FakeEmbedder(),
-        tasks=["camels_back"], seed=7, fast=True,
+        FakeClient(full_responder),
+        FakeClient(full_responder),
+        FakeEmbedder(),
+        tasks=["camels_back"],
+        seed=7,
+        fast=True,
     )
     edits1 = [r["edits"] for r in r1.task_results["camels_back"].details["rounds"]]
     edits2 = [r["edits"] for r in r2.task_results["camels_back"].details["rounds"]]

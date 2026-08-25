@@ -12,7 +12,7 @@ import random
 import numpy as np
 from tqdm.auto import tqdm
 
-from ..client import LLMClient, Embedder
+from ..client import Embedder, LLMClient
 from ..metrics import cosine_similarity
 from .base import TaskResult, clamp01
 

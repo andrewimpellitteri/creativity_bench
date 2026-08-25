@@ -17,7 +17,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     run = sub.add_parser("run", help="Run the benchmark against a model")
-    run.add_argument("--model", required=True, help="Model to benchmark, e.g. gpt-5-mini or glm-4.6")
+    run.add_argument(
+        "--model", required=True, help="Model to benchmark, e.g. gpt-5-mini or glm-4.6"
+    )
     run.add_argument(
         "--provider",
         default="openai",
@@ -54,10 +56,14 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Comma-separated subset of tasks to run. Available: {', '.join(TASKS)}",
     )
     run.add_argument("--n", type=int, default=1, help="Number of benchmark repetitions")
-    run.add_argument("--seed", type=int, default=None, help="Random seed (per-run seeds derive from it)")
+    run.add_argument(
+        "--seed", type=int, default=None, help="Random seed (per-run seeds derive from it)"
+    )
     run.add_argument("--fast", action="store_true", help="Smaller task sizes for a cheap smoke run")
     run.add_argument("--verbose", action="store_true", help="Print full transcripts while running")
-    run.add_argument("--no-save", action="store_true", help="Do not write results to the runs/ directory")
+    run.add_argument(
+        "--no-save", action="store_true", help="Do not write results to the runs/ directory"
+    )
     run.add_argument("--runs-dir", default="runs", help="Directory for result JSON files")
 
     viz = sub.add_parser("viz", help="Plot a comparison chart from saved runs")

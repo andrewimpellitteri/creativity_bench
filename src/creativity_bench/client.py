@@ -35,7 +35,9 @@ def resolve_provider(name: str, base_url: str | None = None) -> Provider:
     try:
         provider = PROVIDERS[name]
     except KeyError:
-        raise ValueError(f"Unknown provider '{name}'. Choose from: {', '.join(PROVIDERS)}") from None
+        raise ValueError(
+            f"Unknown provider '{name}'. Choose from: {', '.join(PROVIDERS)}"
+        ) from None
     if base_url:
         provider = Provider(provider.name, base_url, provider.api_key_env)
     if provider.name == "custom" and not provider.base_url:

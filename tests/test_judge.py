@@ -1,7 +1,7 @@
 import pytest
+from conftest import FakeClient
 
 from creativity_bench.judge import judge_edit
-from conftest import FakeClient
 
 
 def test_judge_parses_clean_json():
@@ -15,8 +15,10 @@ def test_judge_parses_clean_json():
 
 def test_judge_parses_json_with_surrounding_text():
     client = FakeClient(
-        lambda _: 'Here is my assessment:\n{"coherent": false, "edits_applied": true,'
-        ' "quality_maintained": true}\nDone.'
+        lambda _: (
+            'Here is my assessment:\n{"coherent": false, "edits_applied": true,'
+            ' "quality_maintained": true}\nDone.'
+        )
     )
     verdict = judge_edit(client, "orig", "mod", ["edit"])
     assert not verdict.coherent

@@ -9,7 +9,16 @@ from pathlib import Path
 import numpy as np
 
 # Validated categorical palette (light surface), fixed slot order — never cycled.
-SERIES_COLORS = ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"]
+SERIES_COLORS = [
+    "#2a78d6",
+    "#1baf7a",
+    "#eda100",
+    "#008300",
+    "#4a3aa7",
+    "#e34948",
+    "#e87ba4",
+    "#eb6834",
+]
 SURFACE = "#fcfcfb"
 INK_PRIMARY = "#0b0b0b"
 INK_MUTED = "#898781"
@@ -70,15 +79,25 @@ def plot_comparison(
     errors = [np.std([r["composite"] for r in runs[m]]) for m in models]
     x = np.arange(len(models))
     ax_top.bar(
-        x, composites, width=0.55,
+        x,
+        composites,
+        width=0.55,
         color=[colors[m] for m in models],
-        yerr=errors, capsize=4,
+        yerr=errors,
+        capsize=4,
         error_kw={"elinewidth": 1, "ecolor": INK_MUTED},
         zorder=3,
     )
-    for xi, value in zip(x, composites):
-        ax_top.text(xi, value + 0.02, f"{value:.2f}", ha="center", va="bottom",
-                    fontsize=10, color=INK_PRIMARY)
+    for xi, value in zip(x, composites, strict=True):
+        ax_top.text(
+            xi,
+            value + 0.02,
+            f"{value:.2f}",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            color=INK_PRIMARY,
+        )
     ax_top.set_xticks(x, models, fontsize=10)
     ax_top.set_title("Composite creativity score", loc="left", fontsize=12, color=INK_PRIMARY)
 
@@ -92,8 +111,14 @@ def plot_comparison(
             for t in tasks
         ]
         offset = (i - (len(models) - 1) / 2) * bar_width
-        ax_bottom.bar(group_x + offset, means, width=bar_width * 0.92,
-                      color=colors[model], label=model, zorder=3)
+        ax_bottom.bar(
+            group_x + offset,
+            means,
+            width=bar_width * 0.92,
+            color=colors[model],
+            label=model,
+            zorder=3,
+        )
     ax_bottom.set_xticks(group_x, [TASK_LABELS.get(t, t) for t in tasks], fontsize=10)
     ax_bottom.set_title("Per-task scores", loc="left", fontsize=12, color=INK_PRIMARY)
     ax_bottom.legend(frameon=False, fontsize=9, loc="upper right", labelcolor=INK_PRIMARY)

@@ -12,7 +12,7 @@ import random
 import numpy as np
 from tqdm.auto import tqdm
 
-from ..client import LLMClient, Embedder
+from ..client import Embedder, LLMClient
 from ..data import DIVERSITY_CONCEPTS
 from ..metrics import pairwise_cosine_distances
 from .base import TaskResult, clamp01

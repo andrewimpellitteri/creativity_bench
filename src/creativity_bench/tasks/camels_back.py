@@ -42,8 +42,7 @@ def camels_back(
         edit_prompt = (
             "Modify this story according to the instructions below. "
             "Return only the modified story.\n\n"
-            f"STORY:\n{story}\n\nINSTRUCTIONS:\n"
-            + "\n".join(f"- {edit}" for edit in current_edits)
+            f"STORY:\n{story}\n\nINSTRUCTIONS:\n" + "\n".join(f"- {edit}" for edit in current_edits)
         )
         modified = client.generate(edit_prompt, temperature=0.8, max_tokens=2000)
 

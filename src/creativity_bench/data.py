@@ -112,8 +112,32 @@ STORY_PROMPTS = [
 ]
 
 DIVERSITY_CONCEPTS = {
-    "sci_fi": ["a time machine", "an alien artifact", "a sentient AI", "a space colony", "a quantum computer"],
-    "fantasy": ["an ancient spell book", "a magical ring", "an enchanted forest", "a dragon's lair", "a wizard's tower"],
-    "mystery": ["a mysterious door", "a cursed mirror", "a hidden passage", "an encrypted message", "a detective's journal"],
-    "historical": ["a lost civilization", "a forgotten prophecy", "an ancient map", "a royal tomb", "a legendary sword"],
+    "sci_fi": [
+        "a time machine",
+        "an alien artifact",
+        "a sentient AI",
+        "a space colony",
+        "a quantum computer",
+    ],
+    "fantasy": [
+        "an ancient spell book",
+        "a magical ring",
+        "an enchanted forest",
+        "a dragon's lair",
+        "a wizard's tower",
+    ],
+    "mystery": [
+        "a mysterious door",
+        "a cursed mirror",
+        "a hidden passage",
+        "an encrypted message",
+        "a detective's journal",
+    ],
+    "historical": [
+        "a lost civilization",
+        "a forgotten prophecy",
+        "an ancient map",
+        "a royal tomb",
+        "a legendary sword",
+    ],
 }

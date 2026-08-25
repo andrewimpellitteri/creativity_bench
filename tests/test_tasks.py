@@ -2,6 +2,7 @@ import random
 
 import numpy as np
 import pytest
+from conftest import FakeClient, FakeEmbedder
 
 from creativity_bench.tasks import (
     camels_back,
@@ -10,7 +11,6 @@ from creativity_bench.tasks import (
     style_transfer,
     telephone_game,
 )
-from conftest import FakeClient, FakeEmbedder
 
 PASS_VERDICT = '{"coherent": true, "edits_applied": true, "quality_maintained": true}'
 FAIL_VERDICT = '{"coherent": false, "edits_applied": false, "quality_maintained": false}'
@@ -18,8 +18,22 @@ FAIL_VERDICT = '{"coherent": false, "edits_applied": false, "quality_maintained"
 
 # --- free association -------------------------------------------------------
 
+
 def test_free_association_all_unique():
-    words = iter("alpha bravo charlie delta echo foxtrot golf hotel india juliet".split())
+    words = iter(
+        [
+            "alpha",
+            "bravo",
+            "charlie",
+            "delta",
+            "echo",
+            "foxtrot",
+            "golf",
+            "hotel",
+            "india",
+            "juliet",
+        ]
+    )
     client = FakeClient(lambda _: next(words))
     result = free_association(client, n_words=10)
     assert result.score == 1.0
@@ -45,6 +59,7 @@ def test_free_association_strips_noise():
 
 
 # --- telephone game ---------------------------------------------------------
+
 
 def test_telephone_converges_when_summary_stops_changing():
     # Model always produces the same summary -> semantic and lexical sim are 1.0
@@ -84,6 +99,7 @@ def test_telephone_rejects_empty_seed():
 
 # --- camel's back -----------------------------------------------------------
 
+
 def make_judge(verdicts):
     responses = iter(verdicts)
     return FakeClient(lambda _: next(responses))
@@ -93,9 +109,12 @@ def test_camels_back_counts_rounds_until_failure():
     client = FakeClient(lambda _: "a story, slightly modified")
     judge = make_judge([PASS_VERDICT, PASS_VERDICT, FAIL_VERDICT])
     result = camels_back(
-        client, judge,
-        seed_text="premise", edit_requests=["a", "b", "c", "d"],
-        max_edits=5, rng=random.Random(0),
+        client,
+        judge,
+        seed_text="premise",
+        edit_requests=["a", "b", "c", "d"],
+        max_edits=5,
+        rng=random.Random(0),
     )
     assert result.metrics["rounds_survived"] == 2
     assert result.score == pytest.approx(2 / 5)
@@ -106,14 +125,18 @@ def test_camels_back_perfect_run():
     client = FakeClient(lambda _: "modified story")
     judge = make_judge([PASS_VERDICT] * 3)
     result = camels_back(
-        client, judge,
-        seed_text="premise", edit_requests=["a", "b", "c", "d"],
-        max_edits=3, rng=random.Random(0),
+        client,
+        judge,
+        seed_text="premise",
+        edit_requests=["a", "b", "c", "d"],
+        max_edits=3,
+        rng=random.Random(0),
     )
     assert result.score == 1.0
 
 
 # --- diversity --------------------------------------------------------------
+
 
 def test_diversity_orthogonal_stories_score_high():
     counter = {"n": 0}
@@ -142,6 +165,7 @@ def test_diversity_requires_two_samples():
 
 # --- style transfer ---------------------------------------------------------
 
+
 def test_style_transfer_scores_divergence():
     def responder(messages):
         prompt = messages[-1]["content"]
@@ -154,8 +178,11 @@ def test_style_transfer_scores_divergence():
     }
     stories = [{"genre": "horror", "text": "original tale"}]
     result = style_transfer(
-        FakeClient(responder), FakeEmbedder(fixed=fixed),
-        stories=stories, genres=["horror", "noir"], rng=random.Random(0),
+        FakeClient(responder),
+        FakeEmbedder(fixed=fixed),
+        stories=stories,
+        genres=["horror", "noir"],
+        rng=random.Random(0),
     )
     assert result.score == pytest.approx(1.0)  # orthogonal to original
     assert result.metrics["mean_fidelity"] == pytest.approx(1.0)  # identical to summary

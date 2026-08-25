@@ -83,7 +83,9 @@ def run_benchmark(
     task_names = tasks or list(TASKS)
     unknown = set(task_names) - set(TASKS)
     if unknown:
-        raise ValueError(f"Unknown tasks: {', '.join(sorted(unknown))}. Available: {', '.join(TASKS)}")
+        raise ValueError(
+            f"Unknown tasks: {', '.join(sorted(unknown))}. Available: {', '.join(TASKS)}"
+        )
 
     seed = seed if seed is not None else random.randrange(2**31)
     rng = random.Random(seed)

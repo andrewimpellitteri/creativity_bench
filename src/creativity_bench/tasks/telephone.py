@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from tqdm.auto import tqdm
 
-from ..client import LLMClient, Embedder
+from ..client import Embedder, LLMClient
 from ..metrics import cosine_similarity, lexical_similarity
 from .base import TaskResult, clamp01
 

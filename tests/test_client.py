@@ -8,9 +8,7 @@ from creativity_bench.client import LLMClient, resolve_provider
 def make_response(content, finish_reason):
     return SimpleNamespace(
         choices=[
-            SimpleNamespace(
-                message=SimpleNamespace(content=content), finish_reason=finish_reason
-            )
+            SimpleNamespace(message=SimpleNamespace(content=content), finish_reason=finish_reason)
         ],
         usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5),
     )
