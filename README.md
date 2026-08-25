@@ -1,58 +1,84 @@
 # LLM Creativity Benchmark
-A comprehensive evaluation suite for measuring creative capabilities in large language models (LLMs). This benchmark assesses multiple key dimensions of creativity through structured tests and quantitative metrics.
 
-Based on [this](https://gwern.net/creative-benchmark) post by Gwern.
+An evaluation suite for measuring the creative capabilities of large language models, based on [Gwern's creative-benchmark proposals](https://gwern.net/creative-benchmark).
 
-![results](model_comparison.png)
+Works with any OpenAI-compatible API: OpenAI, z.ai (GLM), or a custom endpoint.
 
-## Key Features
-- **Free Association Test**: Measures lexical originality and vocabulary estimation
-- **Telephone Game**: Quantifies semantic drift through iterative paraphrasing
-- **Camel's Back Challenge**: Tests narrative coherence under multiple edits
-- **DRY (Don't Repeat Yourself) Test**: Evaluates output diversity across prompts
-- **Extreme Style Transfer Test**: Take a set of stories with genre labels; ask a LLM to summarize each one; then ask it to write a story using only the summary and a random other genre label; score based on how different the other genre versions are from the original. 
-- **Composite Creativity Score**: Combined metric aggregating multiple dimensions
+## The tasks
 
-Supports `ollama` for local generation as well as the OpenAI API (URL is set to huggingface).
+Every task produces a score in **[0, 1]**; the composite is a weighted mean (equal weights by default).
 
-`config.py` has some stories and genre labels for extreme generation but these are very basic and can be improved.
+| Task | What it measures | Score |
+|------|------------------|-------|
+| **Free association** | Novelty under memory: the model sees its full word history and must never repeat itself | Fraction of unique words (Chao1 vocabulary estimate reported) |
+| **Telephone game** | Creative drift: expand a summary into a story, re-summarize, repeat | Fraction of iterations before summaries collapse to a fixed point |
+| **Camel's back** | Coherence under stacked edits: apply 1–3 random edits per round, an LLM judge verifies coherence | Fraction of edit rounds survived |
+| **Diversity (DRY)** | Spread of outputs across similar prompts | Mean pairwise embedding distance between generated stories |
+| **Style transfer** | Genre transformation: summarize a story, rewrite it in a different genre | Mean embedding divergence from the original (fidelity to the summary reported alongside) |
 
-I have only run the model on a few small models as it takes a bit to run and I am GPU poor :(
+## Setup
 
-## Installation and Usage
+Requires Python ≥ 3.10.
 
-Clone the repository and run:
-
-```
-pip install -r requirements.txt
+```bash
+uv sync          # or: pip install -e .
 ```
 
-Set HF_TOKEN to your huggingface token as an environment variable and run `cli.py`:
+Set the API key for whichever provider you use:
 
+| Provider | Flag | Key env var | Base URL |
+|----------|------|-------------|----------|
+| OpenAI | `--provider openai` | `OPENAI_API_KEY` | api.openai.com |
+| z.ai (API credit) | `--provider zai` | `ZAI_API_KEY` | api.z.ai/api/paas/v4 |
+| z.ai (GLM Coding Plan) | `--provider zai-coding` | `ZAI_API_KEY` | api.z.ai/api/coding/paas/v4 |
+| Anything else | `--provider custom --base-url URL` | `LLM_API_KEY` | your URL |
+
+Embeddings default to OpenAI `text-embedding-3-small` (very cheap), so `OPENAI_API_KEY` is needed for the embedding-based tasks even when benchmarking a GLM model. Override with `--embed-provider` / `--embed-model`.
+
+## Usage
+
+```bash
+# Cheap smoke run first
+uv run creativity-bench run --model gpt-5-mini --fast
+
+# Full run against OpenAI
+uv run creativity-bench run --model gpt-5-mini --n 3 --seed 0
+
+# Benchmark GLM on the coding plan, judged by a fixed OpenAI model
+export ZAI_API_KEY=... OPENAI_API_KEY=...
+uv run creativity-bench run --provider zai-coding --model glm-4.6 \
+    --judge-model gpt-5-mini --judge-provider openai --n 3 --seed 0
+
+# Only some tasks
+uv run creativity-bench run --model gpt-5-mini --tasks diversity,style_transfer
+
+# Plot all saved runs
+uv run creativity-bench viz
 ```
-usage: cli.py [-h] [--model MODEL] [--prompt PROMPT] [--save] [--use_api] [--n N]
 
-Run the LLM Creativity Benchmark and output the results.
+Results are written to `runs/*.json` with full transcripts, per-task metrics, token usage, and the seed for reproducibility.
 
-options:
-  -h, --help       show this help message and exit
-  --model MODEL    Name of the model to benchmark.
-  --save           Save results as JSON file in 'runs' directory
-  --use_api        Use Hugging Face API for generation
-  --n N            Number of benchmark runs
+### Comparing models fairly
+
+- **Pin the judge**: pass the same `--judge-model` for every model you compare, otherwise each model grades its own camel's-back edits.
+- **Pin the embedder**: keep `--embed-model` identical across runs; embedding-based scores are only comparable within one embedding space.
+- **Repeat runs**: use `--n 3` (or more) and a fixed `--seed`; the viz shows standard deviation as error bars.
+
+## Cost
+
+A full run is roughly 100–150 generation requests plus ~40 small embedding calls. With a mini-tier model that is a few cents per run; `--fast` cuts task sizes by ~3× for smoke testing.
+
+## Development
+
+```bash
+uv run pytest
 ```
 
-To visualize the results of all evaluation runs:
-
-```
-python visualize_results.py
-```
+The test suite runs entirely offline against fake clients.
 
 ## Contributing
 
-Please feel free to contribute by submitting pull requests or issues. I am hoping to implement all of the benchmarks mentioned by Gwern's post. We welcome any feedback on how we can improve the benchmark suite.
-
-Also if anyone would like to run the benchmark on different models and submit that results, please do so!
+PRs and issues welcome — the remaining benchmarks from Gwern's post are open, and results from more models are appreciated.
 
 ## License
 
