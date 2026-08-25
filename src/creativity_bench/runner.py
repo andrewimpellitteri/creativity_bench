@@ -24,6 +24,7 @@ DEFAULT_WEIGHTS = {
     "diversity": 0.20,
     "style_transfer": 0.20,
     "odd_one_out": 0.20,
+    "subversion": 0.20,
 }
 
 # Task sizes: (full, fast)
@@ -34,6 +35,8 @@ _SIZES = {
     "samples": (8, 4),
     "n_stories": (7, 2),
     "n_lists": (2, 1),
+    "n_premises": (4, 1),
+    "sub_runs": (3, 2),
 }
 
 
@@ -113,6 +116,11 @@ def run_benchmark(
             rng=rng,
         ),
         "odd_one_out": dict(embedder=embedder, n_lists=size["n_lists"], rng=rng),
+        "subversion": dict(
+            judge_client=judge_client,
+            premises=data.STORY_PROMPTS[: size["n_premises"]],
+            runs=size["sub_runs"],
+        ),
     }
 
     started = time.monotonic()

@@ -12,6 +12,10 @@ PASS_VERDICT = '{"coherent": true, "edits_applied": true, "quality_maintained": 
 
 def full_responder(messages):
     prompt = messages[-1]["content"]
+    # Check the subversion judge first: stories embedded in its prompt may
+    # themselves contain the word "coherent".
+    if "opposite" in prompt and "JSON object with this boolean field" in prompt:
+        return '{"opposite": true}'
     if "coherent" in prompt:  # judge prompt
         return PASS_VERDICT
     if "free-association" in (messages[0].get("content") or ""):
@@ -45,6 +49,7 @@ def test_run_benchmark_end_to_end(tmp_path, capsys):
         "diversity",
         "style_transfer",
         "odd_one_out",
+        "subversion",
     }
     assert 0.0 <= result.composite <= 1.0
     for task_result in result.task_results.values():
