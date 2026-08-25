@@ -23,6 +23,7 @@ DEFAULT_WEIGHTS = {
     "camels_back": 0.20,
     "diversity": 0.20,
     "style_transfer": 0.20,
+    "odd_one_out": 0.20,
 }
 
 # Task sizes: (full, fast)
@@ -32,6 +33,7 @@ _SIZES = {
     "max_edits": (8, 3),
     "samples": (8, 4),
     "n_stories": (7, 2),
+    "n_lists": (2, 1),
 }
 
 
@@ -110,6 +112,7 @@ def run_benchmark(
             genres=data.GENRES,
             rng=rng,
         ),
+        "odd_one_out": dict(embedder=embedder, n_lists=size["n_lists"], rng=rng),
     }
 
     started = time.monotonic()
