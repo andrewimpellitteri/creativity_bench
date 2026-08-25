@@ -23,6 +23,7 @@ DEFAULT_WEIGHTS = {
     "camels_back": 0.20,
     "diversity": 0.20,
     "style_transfer": 0.20,
+    "subversion": 0.20,
 }
 
 # Task sizes: (full, fast)
@@ -32,6 +33,8 @@ _SIZES = {
     "max_edits": (8, 3),
     "samples": (8, 4),
     "n_stories": (7, 2),
+    "n_premises": (4, 1),
+    "sub_runs": (3, 2),
 }
 
 
@@ -109,6 +112,11 @@ def run_benchmark(
             stories=data.SAMPLE_STORIES[: size["n_stories"]],
             genres=data.GENRES,
             rng=rng,
+        ),
+        "subversion": dict(
+            judge_client=judge_client,
+            premises=data.STORY_PROMPTS[: size["n_premises"]],
+            runs=size["sub_runs"],
         ),
     }
 
