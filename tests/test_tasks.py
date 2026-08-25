@@ -115,7 +115,14 @@ def make_judge(verdicts):
 
 
 def test_camels_back_counts_rounds_until_failure():
-    client = FakeClient(lambda _: "a story, slightly modified")
+    counter = {"n": 0}
+
+    def responder(_):
+        # Each edit genuinely changes the story (no accidental fixed point).
+        counter["n"] += 1
+        return f"a story, slightly modified, version {counter['n']}"
+
+    client = FakeClient(responder)
     judge = make_judge([PASS_VERDICT, PASS_VERDICT, FAIL_VERDICT])
     result = camels_back(
         client,
@@ -131,7 +138,13 @@ def test_camels_back_counts_rounds_until_failure():
 
 
 def test_camels_back_perfect_run():
-    client = FakeClient(lambda _: "modified story")
+    counter = {"n": 0}
+
+    def responder(_):
+        counter["n"] += 1
+        return f"modified story {counter['n']}"
+
+    client = FakeClient(responder)
     judge = make_judge([PASS_VERDICT] * 3)
     result = camels_back(
         client,
@@ -142,6 +155,24 @@ def test_camels_back_perfect_run():
         rng=random.Random(0),
     )
     assert result.score == 1.0
+
+
+def test_camels_back_stops_when_sample_stops_changing():
+    # Gwern: run ends "until the sample stops changing (like Telephone)"
+    # because the LLM has given up and echoes the story back untouched.
+    client = FakeClient(lambda _: "the same story")
+    judge = make_judge([PASS_VERDICT])
+    result = camels_back(
+        client,
+        judge,
+        seed_text="premise",
+        edit_requests=["a", "b", "c", "d"],
+        max_edits=4,
+        rng=random.Random(0),
+    )
+    assert result.metrics["rounds_survived"] == 0
+    assert result.metrics["stopped_changing"] is True
+    assert len(result.details["rounds"]) == 1
 
 
 # --- diversity --------------------------------------------------------------

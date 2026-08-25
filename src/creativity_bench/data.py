@@ -80,7 +80,16 @@ GENRES = [
     "western",
 ]
 
+# Gwern, "Camel's Back" (https://gwern.net/creative-benchmark#possible-tasks):
+# draw edits from "a big list of possible ways to modify a sample". Gwern's
+# own examples ("make it rhyme", "add more cowbell", "rewrite as noir
+# detective mystery", "translate into Japanese") are included verbatim below;
+# arbitrary, even absurd, requests are the point of the stress test.
 EDIT_REQUESTS = [
+    "make it rhyme",
+    "add more cowbell",
+    "rewrite it as a noir detective mystery",
+    "translate it into Japanese",
     "make it more humorous",
     "add more suspense",
     "make it more poetic",

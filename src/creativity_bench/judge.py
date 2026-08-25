@@ -1,4 +1,15 @@
-"""LLM judge that returns structured boolean verdicts."""
+"""LLM judge that returns structured boolean verdicts.
+
+Gwern, "Camel's Back" (https://gwern.net/creative-benchmark#possible-tasks,
+Iteration section): each round can be checked "by calling a judge LLM to ask
+questions like, 'is the quality at least OK?' and 'here is the edit request:
+"add more cowbell"; and the before/after; was the edit correct?'"
+
+The EDIT_JUDGE_PROMPT below mirrors both questions: it shows the judge the
+before/after plus the edit request(s), and asks whether quality stayed at
+least OK ("quality_maintained") and whether the requested edits were actually
+applied ("edits_applied").
+"""
 
 from __future__ import annotations
 
@@ -24,8 +35,8 @@ REQUESTED EDITS:
 
 Answer strictly as a JSON object with these three boolean fields and nothing else:
 {{"coherent": <true if the modified story is still coherent and logical>,
- "edits_applied": <true if every requested edit was applied>,
- "quality_maintained": <true if the writing quality is at least as good as the original>}}
+ "edits_applied": <true if every requested edit was applied correctly>,
+ "quality_maintained": <true if the writing quality is at least OK>}}
 """
 
 
@@ -37,7 +48,10 @@ class EditVerdict:
 
     @property
     def passed(self) -> bool:
-        return self.coherent and self.edits_applied
+        # Gwern's stop condition: the run ends when "the edit fails or the
+        # quality is low", so a low-quality result fails the round even if
+        # the letter of the request was carried out.
+        return self.coherent and self.edits_applied and self.quality_maintained
 
 
 def _parse_verdict(text: str) -> EditVerdict:
