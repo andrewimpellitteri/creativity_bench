@@ -2,7 +2,7 @@
 
 An evaluation suite for measuring the creative capabilities of large language models, based on [Gwern's creative-benchmark proposals](https://gwern.net/creative-benchmark).
 
-Works with any OpenAI-compatible API: OpenAI, z.ai (GLM), or a custom endpoint.
+Works with any OpenAI-compatible API: OpenAI, z.ai (GLM), OpenRouter, or a custom endpoint.
 
 ## The tasks
 
@@ -31,6 +31,7 @@ Set the API key for whichever provider you use:
 | OpenAI | `--provider openai` | `OPENAI_API_KEY` | api.openai.com |
 | z.ai (API credit) | `--provider zai` | `ZAI_API_KEY` | api.z.ai/api/paas/v4 |
 | z.ai (GLM Coding Plan) | `--provider zai-coding` | `ZAI_API_KEY` | api.z.ai/api/coding/paas/v4 |
+| OpenRouter | `--provider openrouter` | `OPENROUTER_API_KEY` | openrouter.ai/api/v1 |
 | Anything else | `--provider custom --base-url URL` | `LLM_API_KEY` | your URL |
 
 Embeddings default to OpenAI `text-embedding-3-small` (very cheap), so `OPENAI_API_KEY` is needed for the embedding-based tasks even when benchmarking a GLM model. Override with `--embed-provider` / `--embed-model`.
@@ -52,6 +53,9 @@ uv run creativity-bench run --provider zai-coding --model glm-4.6 \
 # Only some tasks
 uv run creativity-bench run --model gpt-5-mini --tasks diversity,style_transfer
 
+# Free OpenRouter models (e.g. stealth/ox-alpha) cost $0
+uv run creativity-bench run --provider openrouter --model stealth/ox-alpha --n 3 --seed 0
+
 # Plot all saved runs
 uv run creativity-bench viz
 ```
@@ -66,7 +70,7 @@ Results are written to `runs/*.json` with full transcripts, per-task metrics, to
 
 ## Cost
 
-A full run is roughly 100–150 generation requests plus ~40 small embedding calls. With a mini-tier model that is a few cents per run; `--fast` cuts task sizes by ~3× for smoke testing.
+A full run is roughly 100–150 generation requests plus ~40 small embedding calls. With a mini-tier model that is a few cents per run; `--fast` cuts task sizes by ~3× for smoke testing. On OpenRouter, models that are not known to be free (no `:free` suffix, not `stealth/ox-alpha` or `openrouter/free`) trigger a warning since they will spend credits.
 
 ## Development
 
