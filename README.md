@@ -15,6 +15,7 @@ Every task produces a score in **[0, 1]**; the composite is a weighted mean (equ
 | **Camel's back** | Coherence under stacked edits: apply 1–3 random edits per round, an LLM judge verifies coherence | Fraction of edit rounds survived |
 | **Diversity (DRY)** | Spread of outputs across similar prompts | Mean pairwise embedding distance between generated stories |
 | **Style transfer** | Genre transformation: summarize a story, rewrite it in a different genre | Mean embedding divergence from the original (fidelity to the summary reported alongside) |
+| **Subversion** | Negation: write "the opposite" of a generated story; a judge classifies every story/subversion pair as opposite or not | Within-pair hit rate minus cross-pair false-positive rate (Youden's J) |
 
 ## Setup
 
