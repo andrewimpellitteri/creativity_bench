@@ -2,7 +2,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from creativity_bench.client import LLMClient, resolve_provider
+from creativity_bench.client import (
+    LLMClient,
+    is_free_openrouter_model,
+    resolve_provider,
+)
 
 
 def make_response(content, finish_reason):
@@ -74,3 +78,16 @@ def test_openrouter_provider_preset():
     assert provider.name == "openrouter"
     assert provider.base_url == "https://openrouter.ai/api/v1"
     assert provider.api_key_env == "OPENROUTER_API_KEY"
+
+
+@pytest.mark.parametrize(
+    ("model", "expected"),
+    [
+        ("stealth/ox-alpha", True),
+        ("openrouter/free", True),
+        ("z-ai/glm-5.2:free", True),
+        ("deepseek/deepseek-chat-v3-0324", False),
+    ],
+)
+def test_free_openrouter_model_classifier(model, expected):
+    assert is_free_openrouter_model(model) is expected

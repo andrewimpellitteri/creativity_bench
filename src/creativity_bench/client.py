@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 import time
 from dataclasses import dataclass, field
 
@@ -26,6 +27,22 @@ PROVIDERS: dict[str, Provider] = {
     "openrouter": Provider("openrouter", "https://openrouter.ai/api/v1", "OPENROUTER_API_KEY"),
     "custom": Provider("custom", None, "LLM_API_KEY"),
 }
+
+# Exact ids that are free on OpenRouter even without a `:free` suffix.
+OPENROUTER_FREE_MODELS = frozenset({"stealth/ox-alpha", "openrouter/free"})
+
+
+def is_free_openrouter_model(model: str) -> bool:
+    return model in OPENROUTER_FREE_MODELS or model.endswith(":free")
+
+
+def warn_if_paid_openrouter_model(provider: Provider, model: str) -> None:
+    if provider.name == "openrouter" and not is_free_openrouter_model(model):
+        print(
+            f"warning: '{model}' is not a known free OpenRouter model; this will spend credits",
+            file=sys.stderr,
+        )
+
 
 THINK_TAG_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 RETRYABLE_STATUS = {408, 409, 429, 500, 502, 503, 504}

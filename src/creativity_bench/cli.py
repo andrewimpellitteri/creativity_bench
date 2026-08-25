@@ -5,7 +5,13 @@ from __future__ import annotations
 import argparse
 import sys
 
-from .client import PROVIDERS, Embedder, LLMClient, resolve_provider
+from .client import (
+    PROVIDERS,
+    Embedder,
+    LLMClient,
+    resolve_provider,
+    warn_if_paid_openrouter_model,
+)
 from .tasks import TASKS
 
 
@@ -78,10 +84,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     from .runner import print_results, run_benchmark, save_run
 
     provider = resolve_provider(args.provider, args.base_url)
+    warn_if_paid_openrouter_model(provider, args.model)
     client = LLMClient(provider=provider, model=args.model)
 
     if args.judge_model:
         judge_provider = resolve_provider(args.judge_provider or args.provider)
+        warn_if_paid_openrouter_model(judge_provider, args.judge_model)
         judge_client = LLMClient(provider=judge_provider, model=args.judge_model)
     else:
         judge_client = client
