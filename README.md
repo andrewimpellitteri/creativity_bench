@@ -15,6 +15,7 @@ Every task produces a score in **[0, 1]**; the composite is a weighted mean (equ
 | **Camel's back** | Coherence under stacked edits: apply 1–3 random edits per round, an LLM judge verifies coherence | Fraction of edit rounds survived |
 | **Diversity (DRY)** | Spread of outputs across similar prompts | Mean pairwise embedding distance between generated stories |
 | **Style transfer** | Genre transformation: summarize a story, rewrite it in a different genre | Mean embedding divergence from the original (fidelity to the summary reported alongside) |
+| **Shaggy dog** | Non-moralizing: write a deliberately pointless story, judges then name its moral | Inverted judge agreement (divergent morals score high; stated moral fails outright) |
 
 ## Setup
 
