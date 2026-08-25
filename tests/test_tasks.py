@@ -36,9 +36,11 @@ def test_free_association_all_unique():
     )
     client = FakeClient(lambda _: next(words))
     result = free_association(client, n_words=10)
-    assert result.score == 1.0
+    assert result.score == 1.0  # no repetition within the window
     assert result.metrics["unique_words"] == 10
     assert result.metrics["first_repeat_index"] is None
+    # All singletons -> Chao1 estimates many unseen species: n + n*(n-1)/2.
+    assert result.metrics["chao1_estimate"] == pytest.approx(55.0)
 
 
 def test_free_association_with_repeats():
@@ -48,7 +50,10 @@ def test_free_association_with_repeats():
     result = free_association(client, n_words=5)
     assert result.metrics["unique_words"] == 3
     assert result.metrics["first_repeat_index"] == 2
-    assert result.score == pytest.approx(3 / 5)
+    # Score is time to first repetition (2 of 5 turns), not unique/calls.
+    assert result.score == pytest.approx(2 / 5)
+    # Chao1: observed 3, one singleton (cherry), two doubletons -> 3 + 1/4.
+    assert result.metrics["chao1_estimate"] == pytest.approx(3.25)
 
 
 def test_free_association_strips_noise():
