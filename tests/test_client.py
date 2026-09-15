@@ -98,3 +98,16 @@ def test_deepseek_provider_preset():
 )
 def test_free_openrouter_model_classifier(model, expected):
     assert is_free_openrouter_model(model) is expected
+
+
+def test_records_actual_settings_and_truncation(client):
+    install_stub(client, [make_response("partial story", "length")])
+    client.generate("hi", temperature=0.8, max_tokens=900)
+    assert client.request_log == [
+        {
+            "temperature": 0.8,
+            "max_tokens": 900,
+            "finish_reason": "length",
+            "response_model": None,
+        }
+    ]

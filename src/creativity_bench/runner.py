@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import random
 import re
@@ -16,6 +17,7 @@ from .client import Embedder, LLMClient
 from .tasks import TASKS, TaskResult
 
 SCHEMA_VERSION = 2
+PROTOCOL_VERSION = "0.4-validity"
 
 DEFAULT_WEIGHTS = {
     "free_association": 0.20,
@@ -26,6 +28,7 @@ DEFAULT_WEIGHTS = {
     "odd_one_out": 0.20,
     "subversion": 0.20,
     "shaggy_dog": 0.20,
+    "same_but_different": 0.20,
 }
 
 # Task sizes: (full, fast)
@@ -39,6 +42,8 @@ _SIZES = {
     "n_lists": (2, 1),
     "n_premises": (4, 1),
     "sub_runs": (3, 2),
+    "distinct_premises": (6, 2),
+    "distinct_attempts": (10, 3),
 }
 
 
@@ -79,7 +84,7 @@ def composite_score(task_results: dict[str, TaskResult], weights: dict[str, floa
 def run_benchmark(
     client: LLMClient,
     judge_client: LLMClient,
-    embedder: Embedder,
+    embedder: Embedder | None,
     *,
     tasks: list[str] | None = None,
     seed: int | None = None,
@@ -87,19 +92,27 @@ def run_benchmark(
     verbose: bool = False,
     weights: dict[str, float] | None = None,
 ) -> RunResult:
-    task_names = tasks or list(TASKS)
+    task_names = list(TASKS) if tasks is None else list(tasks)
+    if not task_names or len(task_names) != len(set(task_names)):
+        raise ValueError("Select at least one task without duplicates")
     unknown = set(task_names) - set(TASKS)
     if unknown:
         raise ValueError(
             f"Unknown tasks: {', '.join(sorted(unknown))}. Available: {', '.join(TASKS)}"
         )
 
+    embedding_tasks = {"telephone", "diversity", "style_transfer", "odd_one_out"}
+    if embedder is None and embedding_tasks.intersection(task_names):
+        raise ValueError("Selected tasks require an embedder")
+
     seed = seed if seed is not None else random.randrange(2**31)
     rng = random.Random(seed)
-    weights = weights or DEFAULT_WEIGHTS
+    weights = dict(DEFAULT_WEIGHTS if weights is None else weights)
     size = {key: values[1] if fast else values[0] for key, values in _SIZES.items()}
     seed_text = rng.choice(data.STORY_PROMPTS)
 
+    # Independent streams keep task inputs stable across subsets and ordering.
+    task_rngs = {name: random.Random(f"{seed}:{name}") for name in TASKS}
     task_kwargs = {
         "free_association": dict(n_words=size["n_words"]),
         "telephone": dict(embedder=embedder, seed_text=seed_text, max_iter=size["max_iter"]),
@@ -113,12 +126,22 @@ def run_benchmark(
         "diversity": dict(embedder=embedder, samples=size["samples"], rng=rng),
         "shaggy_dog": dict(judge_client=judge_client, k=size["judges"], rng=rng),
         "style_transfer": dict(
+            judge_client=judge_client,
             embedder=embedder,
             stories=data.SAMPLE_STORIES[: size["n_stories"]],
             genres=data.GENRES,
             rng=rng,
         ),
-        "odd_one_out": dict(embedder=embedder, n_lists=size["n_lists"], rng=rng),
+        "odd_one_out": dict(
+            embedder=embedder, judge_client=judge_client, n_lists=size["n_lists"], rng=rng
+        ),
+        "same_but_different": dict(
+            judge_client=judge_client,
+            premises=task_rngs["same_but_different"].sample(
+                data.CREATIVE_PREMISES, size["distinct_premises"]
+            ),
+            attempts=size["distinct_attempts"],
+        ),
         "subversion": dict(
             judge_client=judge_client,
             premises=data.STORY_PROMPTS[: size["n_premises"]],
@@ -126,11 +149,22 @@ def run_benchmark(
         ),
     }
 
+    usage_before = {
+        role: dict(vars(obj.usage)) if obj is not None else {}
+        for role, obj in (("generation", client), ("judge", judge_client), ("embedding", embedder))
+    }
+    log_offsets = {
+        "generation": len(getattr(client, "request_log", [])),
+        "judge": len(getattr(judge_client, "request_log", [])),
+    }
     started = time.monotonic()
     task_results: dict[str, TaskResult] = {}
     for name in task_names:
         print(f"\n=== {name} ===")
-        result = TASKS[name](client, verbose=verbose, **task_kwargs[name])
+        kwargs = dict(task_kwargs[name])
+        if "rng" in kwargs:
+            kwargs["rng"] = task_rngs[name]
+        result = TASKS[name](client, verbose=verbose, **kwargs)
         task_results[name] = result
         print(f"    score: {result.score:.3f}")
 
@@ -146,13 +180,76 @@ def run_benchmark(
         metadata={
             "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
             "judge_model": judge_client.model,
-            "embed_model": embedder.model,
+            "judge_provider": _provider_field(judge_client, "name"),
+            "judge_base_url": _provider_field(judge_client, "base_url"),
+            "embed_provider": _provider_field(embedder, "name"),
+            "embed_base_url": _provider_field(embedder, "base_url"),
+            "generation_provider": _provider_field(client, "name"),
+            "generation_base_url": _provider_field(client, "base_url"),
+            "generation_settings": _settings(client),
+            "judge_settings": _settings(judge_client),
+            "protocol_fingerprint": protocol_fingerprint(),
+            "embed_model": embedder.model if embedder is not None else None,
             "fast": fast,
-            "generation_usage": vars(client.usage),
-            "judge_usage": vars(judge_client.usage) if judge_client is not client else "shared",
-            "embedding_usage": vars(embedder.usage),
+            "evaluation_complete": not any(
+                result.metrics.get(key, 0)
+                for result in task_results.values()
+                for key in ("judge_unresolved", "unresolved_judgments", "generation_errors")
+            ),
+            "protocol_version": PROTOCOL_VERSION,
+            "task_sizes": size,
+            "selected_tasks": task_names,
+            "generation_usage": _usage_delta(client, usage_before["generation"]),
+            "judge_usage": (
+                _usage_delta(judge_client, usage_before["judge"])
+                if judge_client is not client
+                else "shared"
+            ),
+            "embedding_usage": _usage_delta(embedder, usage_before["embedding"]),
+            "generation_requests": list(
+                getattr(client, "request_log", [])[log_offsets["generation"] :]
+            ),
+            "judge_requests": (
+                list(getattr(judge_client, "request_log", [])[log_offsets["judge"] :])
+                if judge_client is not client
+                else "shared"
+            ),
         },
     )
+
+
+def _provider_field(obj, name: str):
+    return getattr(getattr(obj, "provider", None), name, None)
+
+
+def _settings(client) -> dict:
+    return {
+        "sampling": "task-defined; see protocol source fingerprint and request log",
+        "temperature_supported": getattr(client, "_temperature_supported", None),
+        "empty_length_retry": "double token budget up to 16000",
+        "max_retries": getattr(client, "max_retries", None),
+    }
+
+
+def _usage_delta(client, before: dict) -> dict:
+    if client is None:
+        return {}
+    return {key: value - before.get(key, 0) for key, value in vars(client.usage).items()}
+
+
+def protocol_fingerprint() -> str:
+    """Hash scoring, prompts, corpus and request policy; independent of git state."""
+    root = Path(__file__).parent
+    paths = [
+        root / name for name in ("runner.py", "data.py", "judge.py", "metrics.py", "client.py")
+    ]
+    paths += sorted((root / "tasks").glob("*.py"))
+    digest = hashlib.sha256()
+    for path in paths:
+        digest.update(path.relative_to(root).as_posix().encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
 
 
 def save_run(result: RunResult, runs_dir: str | Path = "runs") -> Path:
@@ -168,7 +265,7 @@ def save_run(result: RunResult, runs_dir: str | Path = "runs") -> Path:
 def print_results(result: RunResult) -> None:
     print("\n============= Final Results =============")
     print(f"Model:     {result.model} ({result.provider})")
-    print(f"Composite: {result.composite:.3f}")
+    print(f"Composite: {result.composite:.3f} (exploratory)")
     print("\nTask scores (all in [0, 1]):")
     for name, task_result in result.task_results.items():
         print(f"  {name:<20} {task_result.score:.3f}")

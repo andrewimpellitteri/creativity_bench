@@ -95,6 +95,7 @@ class LLMClient:
     max_retries: int = 4
     timeout: float = 120.0
     usage: Usage = field(default_factory=Usage)
+    request_log: list[dict] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self._client = OpenAI(
@@ -187,6 +188,14 @@ class LLMClient:
                 raise
         self.usage.add(getattr(response, "usage", None))
         choice = response.choices[0]
+        self.request_log.append(
+            {
+                "temperature": kwargs.get("temperature"),
+                "max_tokens": max_tokens,
+                "finish_reason": choice.finish_reason,
+                "response_model": getattr(response, "model", None),
+            }
+        )
         text = choice.message.content or ""
         return THINK_TAG_RE.sub("", text).strip(), choice.finish_reason
 

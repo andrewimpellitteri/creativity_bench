@@ -175,3 +175,28 @@ DIVERSITY_CONCEPTS = {
         "a legendary sword",
     ],
 }
+
+# Original pilot premises: everyday decisions and formal constraints as well as
+# speculative fiction. These are public development items, not a held-out test.
+CREATIVE_PREMISES = [
+    "Two neighbors disagree about who should repair a shared fence. Neither is a villain.",
+    "A bus driver finds an object on the last bus of the night. No crime is involved.",
+    "A restaurant runs out of its signature ingredient during an important dinner.",
+    "A retired athlete teaches a beginner who has no interest in winning.",
+    "A museum discovers that the label on an ordinary object has been wrong for decades.",
+    "A family must choose which one object to keep from a house they are leaving.",
+    "Two colleagues must finish a task without speaking to each other.",
+    "A child is given responsibility for something an adult considers worthless.",
+    "A musician must perform for an audience that cannot hear the performance.",
+    "A translator encounters a word that both parties believe means something different.",
+    "An invitation arrives one day after the event. The story contains no flashback.",
+    "A village votes to stop observing a longstanding tradition.",
+    "A person is mistakenly thanked for a kindness they did not perform.",
+    "Two strangers wait for a repair worker who never arrives.",
+    "An archivist must decide whether to preserve an obvious mistake.",
+    "A town has exactly one minute of silence each day, for an unexplained reason.",
+    "A machine reliably predicts small inconveniences but never major events.",
+    "A map shows a place that exists only while nobody is looking at it.",
+    "A shop sells memories with an explicit no-refund policy.",
+    "A creature can imitate every human action except making a promise.",
+]

@@ -40,3 +40,12 @@ def test_judge_raises_after_two_bad_responses():
     with pytest.raises(RuntimeError, match="unparseable"):
         judge_edit(client, "orig", "mod", ["edit"])
     assert client.usage.requests == 2
+
+
+@pytest.mark.parametrize("value", ['"false"', "0", "null", "[]"])
+def test_judge_rejects_non_boolean_verdicts(value):
+    client = FakeClient(
+        lambda _: '{"coherent": ' + value + ', "edits_applied": true, "quality_maintained": true}'
+    )
+    with pytest.raises(RuntimeError, match="unparseable"):
+        judge_edit(client, "orig", "mod", ["edit"])

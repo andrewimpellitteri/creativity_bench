@@ -39,6 +39,8 @@ def telephone_game(
     verbose: bool = False,
     **_: object,
 ) -> TaskResult:
+    if max_iter < 1:
+        raise ValueError("max_iter must be positive")
     if not seed_text.strip():
         raise ValueError("Seed text cannot be empty")
 
@@ -68,7 +70,9 @@ def telephone_game(
             new_story == story or _near_identical(new_story, story, previous_embedding, embedder)
         ):
             survived = i
-            transcript.append({"summary": new_summary, "exact_match": new_story == story})
+            transcript.append(
+                {"story": new_story, "summary": new_summary, "exact_match": new_story == story}
+            )
             break
 
         new_embedding = embedder.embed_one(new_story)
@@ -82,6 +86,7 @@ def telephone_game(
         lexical_sims.append(lexical_sim)
         transcript.append(
             {
+                "story": new_story,
                 "summary": new_summary,
                 "semantic_sim": semantic_sim,
                 "lexical_sim": lexical_sim,
@@ -103,6 +108,7 @@ def telephone_game(
         metrics={
             "iterations_survived": survived,
             "max_iterations": max_iter,
+            "right_censored": survived == max_iter,
             "mean_semantic_drift": mean_drift,
             "semantic_similarities": semantic_sims,
             "lexical_similarities": lexical_sims,

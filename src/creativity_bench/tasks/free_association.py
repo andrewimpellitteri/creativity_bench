@@ -17,8 +17,9 @@ Scoring fidelity notes:
   report the Chao1 estimated total vocabulary alongside the raw count.
 
 The TaskResult.score slot must lie in [0, 1] for the composite (see base.py),
-so the headline score here is the time-to-first-repetition fraction
-(first_repeat_index / n_words, 1.0 if no repetition within the window). The
+so the descriptive budget score is the fraction of requested turns completed
+before the first invalid response or repetition. Strict format checks do not
+prove that a token is an English dictionary word. The
 raw unique-word count and Chao1 estimate are carried in ``metrics`` verbatim.
 """
 
@@ -45,7 +46,7 @@ WORD_RE = re.compile(r"[a-z]+(?:-[a-z]+)*")
 
 
 def _extract_word(response: str) -> str | None:
-    match = WORD_RE.search(response.lower())
+    match = WORD_RE.fullmatch(response.strip().lower())
     return match.group() if match else None
 
 
@@ -69,6 +70,10 @@ def free_association(
     verbose: bool = False,
     **_: object,
 ) -> TaskResult:
+    if n_words < 1:
+        raise ValueError("n_words must be positive")
+    attempts: list[dict] = []
+    first_failure_index: int | None = None
     messages: list[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": "Begin. Say your first word."},
@@ -81,31 +86,42 @@ def free_association(
     for i in tqdm(range(n_words), desc="Free association", leave=False):
         response = client.chat(messages, temperature=1.0, max_tokens=2000)
         word = _extract_word(response)
+        attempts.append(
+            {"index": i, "raw_response": response, "word": word, "valid": word is not None}
+        )
+        messages.append({"role": "assistant", "content": response})
+        messages.append({"role": "user", "content": "Next word."})
         if word is None:
+            if first_failure_index is None:
+                first_failure_index = i
             continue
         if word in frequencies and first_repeat_index is None:
             first_repeat_index = i
+            if first_failure_index is None:
+                first_failure_index = i
         frequencies[word] += 1
         words.append(word)
         if verbose:
             print(f"  word {i + 1}: {word}")
-        messages.append({"role": "assistant", "content": word})
-        messages.append({"role": "user", "content": "Next word."})
 
     total = len(words)
     unique = len(frequencies)  # raw unique-word count: reported unnormalized
 
-    # Headline score: time to first repetition (in [0, 1]); 1.0 = no repeat.
-    score = 1.0 if first_repeat_index is None else first_repeat_index / n_words
+    # Budget survival: invalid responses and repetitions both end the prefix.
+    score = (n_words if first_failure_index is None else first_failure_index) / n_words
 
     return TaskResult(
         name="free_association",
         score=score,
         metrics={
+            "attempts": n_words,
+            "invalid_rate": (n_words - total) / n_words,
+            "first_failure_index": first_failure_index,
+            "repeat_censored": first_repeat_index is None,
             "words_generated": total,
             "unique_words": unique,
             "first_repeat_index": first_repeat_index,
             "chao1_estimate": _chao1(frequencies) if total else 0.0,
         },
-        details={"words": words},
+        details={"words": words, "attempts": attempts},
     )

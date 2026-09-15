@@ -56,11 +56,13 @@ def test_free_association_with_repeats():
     assert result.metrics["chao1_estimate"] == pytest.approx(3.25)
 
 
-def test_free_association_strips_noise():
+def test_free_association_rejects_noise():
     responses = iter(['"Apple."', "  BANANA!  ", "self-aware"])
     client = FakeClient(lambda _: next(responses))
     result = free_association(client, n_words=3)
-    assert result.details["words"] == ["apple", "banana", "self-aware"]
+    assert result.details["words"] == ["self-aware"]
+    assert result.score == 0
+    assert result.metrics["invalid_rate"] == pytest.approx(2 / 3)
 
 
 # --- telephone game ---------------------------------------------------------
@@ -185,11 +187,11 @@ def test_diversity_orthogonal_stories_score_high():
         counter["n"] += 1
         return f"story {counter['n']}"
 
-    fixed = {f"story {i}": np.eye(4)[i - 1] for i in range(1, 5)}
+    fixed = {f"story {i}": np.eye(8)[i - 1] for i in range(1, 9)}
     result = dont_repeat_yourself(
         FakeClient(responder), FakeEmbedder(fixed=fixed), samples=4, rng=random.Random(0)
     )
-    assert result.score == pytest.approx(1.0)
+    assert result.score == pytest.approx(0.5)
 
 
 def test_diversity_identical_stories_score_zero():
@@ -220,10 +222,16 @@ def test_style_transfer_scores_divergence():
     result = style_transfer(
         FakeClient(responder),
         FakeEmbedder(fixed=fixed),
+        judge_client=FakeClient(
+            lambda _: (
+                '{"plot_preserved": true, "genre_achieved": true, '
+                '"comprehensible": true, "reason": "All criteria met."}'
+            )
+        ),
         stories=stories,
         genres=["horror", "noir"],
         rng=random.Random(0),
     )
-    assert result.score == pytest.approx(1.0)  # orthogonal to original
+    assert result.score == pytest.approx(0.5)  # cosine distance / 2
     assert result.metrics["mean_fidelity"] == pytest.approx(1.0)  # identical to summary
     assert result.details["transfers"][0]["target_genre"] == "noir"

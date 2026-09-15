@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from creativity_bench.comparison import PROVENANCE_FIELDS
 from creativity_bench.report import build_leaderboard, collect_rows, write_leaderboard
 from creativity_bench.visualize import TASK_ORDER
 
@@ -30,7 +31,18 @@ def write_run(
         "weights": {t: 1 / len(scores) for t in scores},
         "seed": seed,
         "duration_seconds": 60.0,
-        "metadata": {"timestamp": timestamp, "judge_model": judge},
+        "metadata": {
+            **{f: "test" for f in PROVENANCE_FIELDS},
+            "timestamp": timestamp,
+            "judge_model": judge,
+            "fast": False,
+            "selected_tasks": sorted(scores),
+            "generation_provider": provider,
+            "task_sizes": {"n": 2},
+            "generation_settings": {"policy": "test"},
+            "judge_settings": {"policy": "test"},
+            "evaluation_complete": True,
+        },
         "tasks": [],
     }
     path = runs_dir / name
@@ -45,7 +57,7 @@ def runs_dir(tmp_path):
     return d
 
 
-def test_orders_by_composite_and_averages_repeats(runs_dir):
+def test_orders_alphabetically_and_averages_repeats(runs_dir):
     write_run(runs_dir, "a1.json", model="alpha", composite=0.8, scores=FULL_SCORES)
     write_run(runs_dir, "a2.json", model="alpha", composite=0.6, scores=FULL_SCORES, seed=1)
     write_run(runs_dir, "b1.json", model="beta", composite=0.9, scores=FULL_SCORES)
@@ -60,8 +72,8 @@ def test_orders_by_composite_and_averages_repeats(runs_dir):
         }
     )
 
-    assert [r["model"] for r in rows] == ["beta", "alpha"]
-    alpha = rows[1]
+    assert [r["model"] for r in rows] == ["alpha", "beta"]
+    alpha = rows[0]
     assert alpha["composite"] == pytest.approx(0.7)
     assert alpha["std"] == pytest.approx(0.1)
     assert alpha["n"] == 2
@@ -78,7 +90,7 @@ def test_missing_task_renders_em_dash(runs_dir):
     assert "| `alpha` |" in text
 
 
-def test_bold_best_composite_and_task(runs_dir):
+def test_task_profiles_and_exploratory_composite(runs_dir):
     better = {t: 0.9 for t in TASK_ORDER}
     worse = {t: 0.1 for t in TASK_ORDER}
     write_run(runs_dir, "g.json", model="gold", composite=0.9, scores=better)
@@ -86,8 +98,9 @@ def test_bold_best_composite_and_task(runs_dir):
 
     text = build_leaderboard(runs_dir, generated="2026-09-15")
 
-    assert "| 1 | `gold` | **0.900 ± 0.000**" in text
-    assert "**0.900**" in text
+    assert "Exploratory composite" in text
+    assert "| `gold` | 0.900" in text
+    assert "Rank" not in text
     assert "0.100" in text
 
 

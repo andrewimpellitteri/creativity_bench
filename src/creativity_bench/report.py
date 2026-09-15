@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import datetime as dt
+from itertools import combinations
 from pathlib import Path
 
 import numpy as np
 
+from .comparison import group_cohorts, paired_difference, verified_provenance
 from .visualize import TASK_LABELS, TASK_ORDER, load_runs
 
 
@@ -23,6 +25,8 @@ def _fmt(value: float, best: float | None = None) -> str:
 
 def collect_rows(runs: dict[str, list[dict]]) -> list[dict]:
     """Summarise each model's runs: means, spread, provenance, and per-task scores."""
+    if len(group_cohorts(runs)) > 1:
+        raise ValueError("collect_rows requires one compatible protocol cohort")
     rows = []
     for model, model_runs in runs.items():
         composites = [r["composite"] for r in model_runs]
@@ -50,7 +54,7 @@ def collect_rows(runs: dict[str, list[dict]]) -> list[dict]:
                 },
             }
         )
-    rows.sort(key=lambda row: -row["composite"])
+    rows.sort(key=lambda row: row["model"])
     return rows
 
 
@@ -58,66 +62,115 @@ def build_leaderboard(runs_dir: str | Path, *, generated: str | None = None) -> 
     runs = load_runs(runs_dir)
     if not runs:
         raise ValueError(f"No usable run files in {runs_dir}/. Run `creativity-bench run` first.")
-    rows = collect_rows(runs)
+    incomplete = sum(
+        (r.get("metadata") or {}).get("evaluation_complete") is False
+        for rs in runs.values()
+        for r in rs
+    )
+    runs = {
+        model: [r for r in rs if (r.get("metadata") or {}).get("evaluation_complete") is not False]
+        for model, rs in runs.items()
+    }
+    runs = {model: rs for model, rs in runs.items() if rs}
     generated = generated or dt.date.today().isoformat()
     n_runs = sum(len(v) for v in runs.values())
-
-    task_headers = [TASK_LABELS[t].replace("\n", " ") for t in TASK_ORDER]
-    best_tasks = {
-        t: max(
-            (row["tasks"][t] for row in rows if not np.isnan(row["tasks"][t])),
-            default=float("nan"),
-        )
-        for t in TASK_ORDER
-    }
-
-    header_cells = [*task_headers, "n", "Seeds", "Judge", "Runs from"]
     lines = [
         "# Creativity Bench — Leaderboard",
         "",
-        f"Generated {generated} from {n_runs} runs of {len(rows)} models in `{runs_dir}/`.",
-        "Scores are in [0, 1]; the composite is the weighted mean over the eight tasks.",
+        f"Generated {generated} from {n_runs} runs of {len(runs)} models in `{runs_dir}/`.",
+        f"Excluded {incomplete} incomplete evaluations: unresolved judgments or generation "
+        "errors yield audit lower bounds, not comparable creativity scores.",
+        "Task profiles are primary. The composite is exploratory: its weighting has not "
+        "been validated as a measure of creativity. Models are listed alphabetically.",
+        "Different protocol cohorts are not directly comparable; no cross-cohort ranking is made.",
         "",
-        "| Rank | Model | Composite | " + " | ".join(header_cells) + " |",
-        "|---:|---|---:|" + "---:|" * len(TASK_ORDER) + ":--:|:--|:--|:--|",
     ]
-
-    for i, row in enumerate(rows, start=1):
-        composite = f"{row['composite']:.3f} ± {row['std']:.3f}"
-        if i == 1:
-            composite = f"**{composite}**"
-        task_cells = [
-            _fmt(row["tasks"][t], None if np.isnan(best_tasks[t]) else best_tasks[t])
-            for t in TASK_ORDER
+    all_rows = []
+    for index, cohort in enumerate(group_cohorts(runs).values(), 1):
+        rows = collect_rows(cohort)
+        all_rows.extend(rows)
+        example = next(iter(cohort.values()))[0]
+        verified = verified_provenance(example)
+        metadata = example.get("metadata") or {}
+        status = "verified provenance" if verified else "UNVERIFIED legacy/incomplete provenance"
+        lines += [
+            f"## Cohort {index} — {status}",
+            "",
+            f"Protocol: `{metadata.get('protocol_version', 'unknown')}`; "
+            f"fast: `{metadata.get('fast', 'unknown')}`; "
+            f"judge: `{metadata.get('judge_model', 'unknown')}`.",
+            "",
         ]
-        model_cell = f"`{row['model']}`" + (" ⚡" if row["fast"] else "")
-        lines.append(
-            f"| {i} | {model_cell} | {composite} | "
-            + " | ".join(task_cells)
-            + f" | {row['n']} | {row['seeds']} | {row['judge']} | {row['dates']} |"
-        )
-
-    lines += ["", "## Notes", ""]
-    if any(row["fast"] for row in rows):
-        lines.append(
-            "- ⚡ marks a model run with `--fast` (about 3x smaller task sizes), used when an "
-            "endpoint cannot sustain full-size runs; its scores are not directly comparable "
-            "to full-size runs."
-        )
-    if any(row["model"] in row["judge"] for row in rows):
-        lines.append(
-            "- At least one model graded its own outputs (see the Judge column); treat its "
-            "judge-dependent task scores with extra caution."
-        )
+        headers = [
+            "Model",
+            *[TASK_LABELS[t].replace("\n", " ") for t in TASK_ORDER],
+            "Exploratory composite ± SD",
+            "n runs",
+            "Seeds",
+            "Judge",
+            "Runs from",
+        ]
+        lines += [
+            "| " + " | ".join(headers) + " |",
+            "| " + " | ".join(["---"] * len(headers)) + " |",
+        ]
+        for row in rows:
+            cells = [
+                f"`{row['model']}`" + (" ⚡" if row["fast"] else ""),
+                *[_fmt(row["tasks"][t]) for t in TASK_ORDER],
+                f"{row['composite']:.3f} ± {row['std']:.3f}",
+                str(row["n"]),
+                row["seeds"],
+                row["judge"],
+                row["dates"],
+            ]
+            lines.append("| " + " | ".join(cells) + " |")
+        lines.append("")
+        if verified and len(cohort) >= 2:
+            lines += [
+                "### Paired task differences",
+                "",
+                "Differences are left minus right; percentile bootstrap 95% intervals "
+                "resample matched seeds. Duplicate seed runs are averaged first. "
+                "Intervals are descriptive, without multiple-comparison correction.",
+                "",
+                "| Left - right | Task | Matched seeds | Difference | 95% interval |",
+                "|---|---|---:|---:|---|",
+            ]
+            for left, right in combinations(sorted(cohort), 2):
+                for task in TASK_ORDER:
+                    if task not in example.get("scores", {}):
+                        continue
+                    comparison = paired_difference(cohort[left], cohort[right], task)
+                    difference = comparison["difference"]
+                    ci = comparison["ci95"]
+                    value = "—" if difference is None else f"{difference:.3f}"
+                    interval = (
+                        "— (need ≥2 matched seeds)" if ci is None else f"[{ci[0]:.3f}, {ci[1]:.3f}]"
+                    )
+                    lines.append(
+                        f"| `{left}` - `{right}` | {task} | "
+                        f"{comparison['n_matched_seeds']} | {value} | {interval} |"
+                    )
+            lines.append("")
     lines += [
-        "- Judge-dependent tasks (`camels_back`, `odd_one_out`, `subversion`, `shaggy_dog`) "
-        "inherit the judge model's biases; the judge is held fixed across models to keep "
-        "scores comparable.",
-        "- Repeat runs (n > 1) vary only the RNG seed; error spreads are population std-dev "
-        "across repeats.",
-        "- Reproduce with `creativity-bench run` (see the README), then "
-        "`creativity-bench report --runs-dir runs`.",
+        "## Notes",
+        "",
+        "- ⚡ denotes fast task budgets. Cohorts split by protocol, tasks, weights, "
+        "budgets, judge, embedding and generation settings.",
+        "- Legacy or incomplete provenance cannot establish compatibility; these runs "
+        "are shown separately by model and are excluded from paired inference.",
+        "- Profile means weight saved runs equally; paired differences weight matched "
+        "seeds equally after averaging duplicates, so their differences may differ.",
+        "- SD describes variation across saved runs, not uncertainty from independent "
+        "samples. Pairwise story distances are dependent and are never bootstrap units.",
+        "- Judge-dependent scores inherit the judge model's biases.",
     ]
+    if any(row["model"] in row["judge"] for row in all_rows):
+        lines.append(
+            "- At least one model graded its own outputs (see Judge); interpret "
+            "judge-dependent scores with caution."
+        )
     return "\n".join(lines) + "\n"
 
 

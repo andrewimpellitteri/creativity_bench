@@ -41,6 +41,8 @@ def camels_back(
     verbose: bool = False,
     **_: object,
 ) -> TaskResult:
+    if max_edits < 1 or not edit_requests:
+        raise ValueError("Need positive max_edits and at least one edit request")
     rng = rng or random.Random()
     story = client.generate(
         f"Write a short story (200-300 words) based on this premise:\n\n{seed_text}",
@@ -55,7 +57,7 @@ def camels_back(
 
     for i in tqdm(range(max_edits), desc="Camel's back", leave=False):
         # Ramp difficulty: multiple simultaneous random edit requests.
-        current_edits = rng.sample(edit_requests, rng.randint(1, 3))
+        current_edits = rng.sample(edit_requests, rng.randint(1, min(3, len(edit_requests))))
         edit_prompt = (
             "Modify this story according to the instructions below. "
             "Return only the modified story.\n\n"
@@ -64,8 +66,11 @@ def camels_back(
         modified = client.generate(edit_prompt, temperature=0.8, max_tokens=2000)
 
         verdict = judge_edit(judge_client, story, modified, current_edits)
+        final_quality_ok = verdict.quality_maintained
         rounds.append(
             {
+                "original": story,
+                "modified": modified,
                 "edits": current_edits,
                 "coherent": verdict.coherent,
                 "edits_applied": verdict.edits_applied,
@@ -94,6 +99,7 @@ def camels_back(
         metrics={
             "rounds_survived": rounds_survived,
             "max_rounds": max_edits,
+            "right_censored": rounds_survived == max_edits,
             "stopped_changing": stopped_changing,
             "final_quality_ok": final_quality_ok,
         },

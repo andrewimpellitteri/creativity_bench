@@ -59,6 +59,7 @@ def test_odd_one_out_maximally_distant_item_scores_high():
     result = odd_one_out(
         client,
         embedder=fixed_embedder([-1.0, 0.0]),
+        judge_client=FakeClient(lambda _: '{"qualifies": true}'),
         lists=lists,
         rng=random.Random(0),
     )
@@ -126,7 +127,7 @@ def test_odd_one_out_judge_rejection_zeroes_item():
     assert result.score == 0.0
 
 
-def test_odd_one_out_malformed_judge_response_counts_qualified():
+def test_odd_one_out_malformed_judge_response_is_unresolved():
     lists = [("dog breeds", ["alpha", "beta"])]
     client = FakeClient(lambda _: "novel item")
     judge = FakeClient(lambda _: "I cannot answer that question.")
@@ -138,7 +139,32 @@ def test_odd_one_out_malformed_judge_response_counts_qualified():
         rng=random.Random(0),
     )
     assert result.metrics["judge_unparseable"] == 1
-    assert result.details["lists"][0]["qualified"] is True
+    assert result.details["lists"][0]["qualified"] is None
     assert result.details["lists"][0]["judge_unparseable"] is True
-    assert result.score == pytest.approx(1.0)  # fail-open: ungated score kept
+    assert result.score == 0.0
+    assert result.metrics["judge_unresolved"] == 1
     assert judge.usage.requests == 2  # one retry before the fallback
+
+
+@pytest.mark.parametrize("raw", ['{"qualifies": "false"}', '{"qualifies": 1}', "[]", "null"])
+def test_odd_one_out_nonboolean_judge_cannot_award_credit(raw):
+    result = odd_one_out(
+        FakeClient(lambda _: "novel item"),
+        embedder=fixed_embedder([-1, 0]),
+        judge_client=FakeClient(lambda _: raw),
+        lists=[("trees", ["alpha", "beta"])],
+    )
+    assert result.score == 0
+    assert result.metrics["judge_unresolved"] == 1
+    assert result.details["lists"][0]["judge_attempts"] == [raw, raw]
+
+
+def test_odd_one_out_unjudged_distance_is_only_diagnostic():
+    result = odd_one_out(
+        FakeClient(lambda _: "novel item"),
+        embedder=fixed_embedder([-1, 0]),
+        lists=[("trees", ["alpha", "beta"])],
+    )
+    assert result.score == 0
+    assert result.metrics["mean_min_distance"] == pytest.approx(2)
+    assert result.metrics["judge_unresolved"] == 1
