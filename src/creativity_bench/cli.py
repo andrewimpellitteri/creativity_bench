@@ -77,6 +77,15 @@ def build_parser() -> argparse.ArgumentParser:
     viz.add_argument("--out", default="model_comparison.png", help="Output image path")
     viz.add_argument("--show", action="store_true", help="Open an interactive window as well")
 
+    report = sub.add_parser("report", help="Write a markdown leaderboard from saved runs")
+    report.add_argument("--runs-dir", default="runs", help="Directory containing run JSON files")
+    report.add_argument("--out", default="results/leaderboard.md", help="Output markdown path")
+    report.add_argument(
+        "--chart",
+        default=None,
+        help="Also render the comparison chart to this image path",
+    )
+
     return parser
 
 
@@ -123,11 +132,25 @@ def cmd_viz(args: argparse.Namespace) -> int:
     return plot_comparison(runs_dir=args.runs_dir, out_path=args.out, show=args.show)
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    from .report import write_leaderboard
+
+    path = write_leaderboard(args.runs_dir, args.out)
+    print(f"Wrote {path}")
+    if args.chart:
+        from .visualize import plot_comparison
+
+        plot_comparison(runs_dir=args.runs_dir, out_path=args.chart, show=False)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.command == "run":
             return cmd_run(args)
+        if args.command == "report":
+            return cmd_report(args)
         return cmd_viz(args)
     except (RuntimeError, ValueError) as e:
         print(f"error: {e}", file=sys.stderr)

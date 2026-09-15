@@ -25,13 +25,25 @@ INK_MUTED = "#898781"
 GRIDLINE = "#e1e0d9"
 BASELINE = "#c3c2b7"
 
-TASK_ORDER = ["free_association", "telephone", "camels_back", "diversity", "style_transfer"]
+TASK_ORDER = [
+    "free_association",
+    "telephone",
+    "camels_back",
+    "diversity",
+    "style_transfer",
+    "odd_one_out",
+    "subversion",
+    "shaggy_dog",
+]
 TASK_LABELS = {
     "free_association": "Free\nassociation",
     "telephone": "Telephone\ngame",
     "camels_back": "Camel's\nback",
     "diversity": "Diversity",
     "style_transfer": "Style\ntransfer",
+    "odd_one_out": "Odd one\nout",
+    "subversion": "Subversion",
+    "shaggy_dog": "Shaggy\ndog",
 }
 
 
@@ -71,7 +83,7 @@ def plot_comparison(
     colors = {model: SERIES_COLORS[i] for i, model in enumerate(models)}
 
     fig, (ax_top, ax_bottom) = plt.subplots(
-        2, 1, figsize=(11, 8), height_ratios=[1, 1.4], facecolor=SURFACE
+        2, 1, figsize=(14, 8), height_ratios=[1, 1.4], facecolor=SURFACE
     )
 
     # Top: composite score per model, with std-dev error bars across repeat runs.
