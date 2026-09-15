@@ -166,6 +166,15 @@ def plot_comparison(
         error_kw={"elinewidth": 1, "ecolor": INK_MUTED},
         zorder=3,
     )
+    # Individual runs as dots: n per model is visible, not hidden by the mean.
+    for xi, model in zip(x, models, strict=True):
+        ax_top.scatter(
+            [xi] * len(runs[model]),
+            [r["composite"] for r in runs[model]],
+            s=14,
+            color=INK_PRIMARY,
+            zorder=4,
+        )
     for xi, value in zip(x, composites, strict=True):
         ax_top.text(
             xi,
@@ -177,6 +186,7 @@ def plot_comparison(
             color=INK_PRIMARY,
         )
     ax_top.set_xticks(x, models, fontsize=10)
+    ax_top.set_ylabel("score", fontsize=10, color=INK_MUTED)
     ax_top.set_title(
         "Exploratory composite (unvalidated weighting)", loc="left", fontsize=12, color=INK_PRIMARY
     )
@@ -185,6 +195,7 @@ def plot_comparison(
     tasks = [t for t in TASK_ORDER if any(t in r["scores"] for m in models for r in runs[m])]
     group_x = np.arange(len(tasks))
     bar_width = min(0.8 / max(len(models), 1), 0.25)
+    label_rotation = 0 if len(models) <= 3 else 90
     for i, model in enumerate(models):
         means = [
             np.mean([r["scores"][t] for r in runs[model] if t in r["scores"]] or [np.nan])
@@ -199,9 +210,39 @@ def plot_comparison(
             label=model,
             zorder=3,
         )
+        for gx, value in zip(group_x + offset, means, strict=True):
+            if np.isfinite(value):
+                ax_bottom.text(
+                    gx,
+                    value + 0.02,
+                    f"{value:.2f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=7,
+                    rotation=label_rotation,
+                    color=INK_PRIMARY,
+                )
     ax_bottom.set_xticks(group_x, [TASK_LABELS.get(t, t) for t in tasks], fontsize=10)
+    ax_bottom.set_ylabel("score", fontsize=10, color=INK_MUTED)
     ax_bottom.set_title("Per-task scores", loc="left", fontsize=12, color=INK_PRIMARY)
     ax_bottom.legend(frameon=False, fontsize=9, loc="upper right", labelcolor=INK_PRIMARY)
+
+    # Provenance subtitle: one verified cohort must be self-describing.
+    first = next(iter(runs.values()))[0]
+    meta = first.get("metadata") or {}
+    budget = "fast" if meta.get("fast") else "full"
+    judge = meta.get("judge_model") or "model-as-judge"
+    protocol = meta.get("protocol_version") or "unknown protocol"
+    run_counts = {len(rs) for rs in runs.values()}
+    n_note = f"{sorted(run_counts)[0]}" if len(run_counts) == 1 else "mixed"
+    fig.text(
+        0.01,
+        0.995,
+        f"{protocol} · {budget} budget · judge: {judge} · runs per model: {n_note}",
+        fontsize=8.5,
+        color=INK_MUTED,
+        va="top",
+    )
 
     for ax in (ax_top, ax_bottom):
         ax.set_facecolor(SURFACE)
