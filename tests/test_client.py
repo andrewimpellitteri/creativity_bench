@@ -80,6 +80,13 @@ def test_openrouter_provider_preset():
     assert provider.api_key_env == "OPENROUTER_API_KEY"
 
 
+def test_deepseek_provider_preset():
+    provider = resolve_provider("deepseek")
+    assert provider.name == "deepseek"
+    assert provider.base_url == "https://api.deepseek.com"
+    assert provider.api_key_env == "DEEPSEEK_API_KEY"
+
+
 @pytest.mark.parametrize(
     ("model", "expected"),
     [

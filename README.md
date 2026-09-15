@@ -1,8 +1,13 @@
 # LLM Creativity Benchmark
 
+[![CI](https://github.com/andrewimpellitteri/creativity_bench/actions/workflows/ci.yml/badge.svg)](https://github.com/andrewimpellitteri/creativity_bench/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 An evaluation suite for measuring the creative capabilities of large language models, based on [Gwern's creative-benchmark proposals](https://gwern.net/creative-benchmark).
 
-Works with any OpenAI-compatible API: OpenAI, z.ai (GLM), OpenRouter, or a custom endpoint.
+Works with any OpenAI-compatible API: OpenAI, DeepSeek, z.ai (GLM), OpenRouter, or a custom endpoint.
 
 ## The tasks
 
@@ -32,6 +37,7 @@ Set the API key for whichever provider you use:
 | Provider | Flag | Key env var | Base URL |
 |----------|------|-------------|----------|
 | OpenAI | `--provider openai` | `OPENAI_API_KEY` | api.openai.com |
+| DeepSeek | `--provider deepseek` | `DEEPSEEK_API_KEY` | api.deepseek.com |
 | z.ai (API credit) | `--provider zai` | `ZAI_API_KEY` | api.z.ai/api/paas/v4 |
 | z.ai (GLM Coding Plan) | `--provider zai-coding` | `ZAI_API_KEY` | api.z.ai/api/coding/paas/v4 |
 | OpenRouter | `--provider openrouter` | `OPENROUTER_API_KEY` | openrouter.ai/api/v1 |
@@ -61,6 +67,10 @@ uv run creativity-bench run --provider openrouter --model stealth/ox-alpha --n 3
 
 # Plot all saved runs
 uv run creativity-bench viz
+
+# Write a markdown leaderboard (and chart) from saved runs
+uv run creativity-bench report --runs-dir runs --out results/leaderboard.md \
+    --chart results/model_comparison.png
 ```
 
 Results are written to `runs/*.json` with full transcripts, per-task metrics, token usage, and the seed for reproducibility.
@@ -69,7 +79,7 @@ Results are written to `runs/*.json` with full transcripts, per-task metrics, to
 
 - **Pin the judge**: pass the same `--judge-model` for every model you compare, otherwise each model grades its own camel's-back edits.
 - **Pin the embedder**: keep `--embed-model` identical across runs; embedding-based scores are only comparable within one embedding space.
-- **Repeat runs**: use `--n 3` (or more) and a fixed `--seed`; the viz shows standard deviation as error bars.
+- **Repeat runs**: use `--n 3` (or more) and a fixed `--seed`; `viz` shows standard deviation as error bars and `report` averages repeats into the leaderboard.
 
 ## Cost
 
