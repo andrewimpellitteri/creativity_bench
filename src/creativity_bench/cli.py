@@ -66,6 +66,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--seed", type=int, default=None, help="Random seed (per-run seeds derive from it)"
     )
     run.add_argument("--fast", action="store_true", help="Smaller task sizes for a cheap smoke run")
+    run.add_argument(
+        "--timeout",
+        type=float,
+        default=120.0,
+        help="Per-request timeout in seconds (raise this for heavily rate-limited endpoints)",
+    )
     run.add_argument("--verbose", action="store_true", help="Print full transcripts while running")
     run.add_argument(
         "--no-save", action="store_true", help="Do not write results to the runs/ directory"
@@ -94,12 +100,14 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     provider = resolve_provider(args.provider, args.base_url)
     warn_if_paid_openrouter_model(provider, args.model)
-    client = LLMClient(provider=provider, model=args.model)
+    client = LLMClient(provider=provider, model=args.model, timeout=args.timeout)
 
     if args.judge_model:
         judge_provider = resolve_provider(args.judge_provider or args.provider)
         warn_if_paid_openrouter_model(judge_provider, args.judge_model)
-        judge_client = LLMClient(provider=judge_provider, model=args.judge_model)
+        judge_client = LLMClient(
+            provider=judge_provider, model=args.judge_model, timeout=args.timeout
+        )
     else:
         judge_client = client
 

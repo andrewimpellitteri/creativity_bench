@@ -151,7 +151,9 @@ class LLMClient:
                     raise
                 last_error = e
             if attempt < self.max_retries:
-                time.sleep(min(2**attempt, 30))
+                # Cap at 60s: some rate-limited plans (e.g. GLM Coding Plan) use
+                # throttle windows longer than 30s.
+                time.sleep(min(2**attempt, 60))
         raise RuntimeError(f"Generation failed after {self.max_retries + 1} attempts: {last_error}")
 
     def _request(
