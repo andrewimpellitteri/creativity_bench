@@ -191,6 +191,15 @@ def test_public_artifacts_never_leak_identity_verdicts_or_labels(tmp_path):
         assert marker in key, f"private_key.json is missing {marker}"
 
 
+def test_file_at_output_path_is_refused_cleanly(tmp_path):
+    runs = make_run(tmp_path)
+    out = tmp_path / "packet"
+    out.write_text("occupied by a regular file")
+    with pytest.raises(ValueError, match="new or empty"):
+        exporter.export_packet(runs, out)
+    assert out.read_text() == "occupied by a regular file"
+
+
 def test_empty_input_fails_without_writing(tmp_path):
     runs = tmp_path / "runs"
     runs.mkdir()
