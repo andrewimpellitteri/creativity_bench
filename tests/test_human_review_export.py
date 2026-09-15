@@ -99,6 +99,98 @@ def test_controls_duplicate_occurrences_and_reproducible_order(tmp_path):
     )
 
 
+def test_public_artifacts_never_leak_identity_verdicts_or_labels(tmp_path):
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    transcript = [
+        {
+            "story": "first",
+            "accepted": True,
+            "verdict": {
+                "premise_adherent": True,
+                "comprehensible": True,
+                "plot_distinct": True,
+                "evidence": "SECRET_JUDGE_EVIDENCE",
+                "summary": "SECRET_SUMMARY",
+            },
+            "judge_responses": ["SECRET_RAW_JUDGE_REPLY"],
+        },
+        {"story": "second", "accepted": False},
+    ]
+    (runs / "SECRET_MODEL.json").write_text(
+        json.dumps(
+            {
+                "model": "SECRET_MODEL",
+                "provider": "SECRET_PROVIDER",
+                "seed": 987654321,
+                "tasks": {
+                    "same_but_different": {
+                        "score": 1.0,
+                        "details": {
+                            "premises": [{"premise": "fence premise", "transcript": transcript}]
+                        },
+                    }
+                },
+            }
+        )
+    )
+    controls = tmp_path / "controls.json"
+    controls.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "SECRET_CONTROL_ID",
+                    "split": "SECRET_SPLIT",
+                    "premise": "fence premise",
+                    "candidate": "first",
+                    "accepted_stories": [],
+                    "expected": {"premise_adherent": True, "plot_distinct": False},
+                }
+            ]
+        )
+    )
+    out = tmp_path / "packet"
+    exporter.export_packet(runs, out, controls, seed=987654321)
+    secrets = [
+        "SECRET_MODEL",
+        "SECRET_PROVIDER",
+        "SECRET_RAW_JUDGE_REPLY",
+        "SECRET_JUDGE_EVIDENCE",
+        "SECRET_SUMMARY",
+        "SECRET_CONTROL_ID",
+        "SECRET_SPLIT",
+        "987654321",
+        '"model"',
+        '"provider"',
+        '"seed"',
+        '"expected"',
+        '"verdict"',
+        '"judge_responses"',
+        '"accepted"',
+        '"score"',
+    ]
+    for filename in ("review_items.json", "review.html", "responses.csv", "INSTRUCTIONS.txt"):
+        text = (out / filename).read_text()
+        for secret in secrets:
+            assert secret not in text, f"{filename} leaks {secret}"
+    key = (out / "private_key.json").read_text()
+    for marker in (
+        "SECRET_MODEL",
+        "SECRET_PROVIDER",
+        "SECRET_RAW_JUDGE_REPLY",
+        "SECRET_JUDGE_EVIDENCE",
+        "SECRET_SUMMARY",
+        "SECRET_CONTROL_ID",
+        "SECRET_SPLIT",
+        "987654321",
+        '"model"',
+        '"provider"',
+        '"seed"',
+        '"expected"',
+    ):
+        assert marker in key, f"private_key.json is missing {marker}"
+
+
 def test_empty_input_fails_without_writing(tmp_path):
     runs = tmp_path / "runs"
     runs.mkdir()
