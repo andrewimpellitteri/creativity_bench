@@ -15,6 +15,15 @@ Implementation notes:
 - The storyteller is prompted for a deliberately pointless story; the judge is
   then sampled K times (default 3) asking Gwern's exact question, "what is the
   moral or punchline of this story?".
+- Comprehensibility gate: before any moral-agreement scoring, a judge checks
+  (strict JSON boolean, fail-closed) that the story is comprehensible at all.
+  An incoherent or unresolved verdict scores 0.0 -- disagreement about morals
+  must not reward incoherence (design audit). Unresolved gate verdicts also
+  set ``judge_unresolved`` so the run is marked incomplete upstream.
+- Multi-judge scaffolding: repeated calls to one judge model are not
+  independent judges, so ``judge_clients`` accepts several fixed judge models;
+  explanations are kept per judge, and within-judge and cross-judge agreement
+  are reported separately. The score still uses the pooled pairwise agreement.
 - Agreement between judge explanations is measured as mean pairwise Jaccard
   similarity over normalized content-word token sets, and the score is the
   INVERTED agreement mapped to [0, 1]: high score = judges could NOT agree =
@@ -35,6 +44,7 @@ Implementation notes:
 
 from __future__ import annotations
 
+import json
 import random
 import re
 
@@ -55,6 +65,22 @@ PUNCHLINE_PROMPT = """\
 What is the moral or punchline of this story?
 
 {story}"""
+
+# Comprehensibility gate (design audit: "Check basic comprehensibility" before
+# moral-agreement scoring, so disagreement about morals cannot reward
+# incoherence). Deliberately pointless must still be followable.
+COMPREHENSIBILITY_PROMPT = """\
+Below is a short story submitted to a shaggy dog storytelling contest. Judge \
+ONLY whether the story is comprehensible: its events must be followable from \
+sentence to sentence, even though the story is deliberately pointless. \
+Nonsense, word salad, or un-followable text is not comprehensible.
+
+STORY:
+{story}
+
+Answer strictly as a JSON object with this boolean field and nothing else:
+{{"comprehensible": <true if the story is comprehensible>}}
+"""
 
 # Hard-refusal guard: an explicit stated moral/punchline is precisely the
 # "tidy pat interpretation" Gwern punishes ("ChatGPT in particular wants to
@@ -127,77 +153,213 @@ def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
     return len(a & b) / len(a | b)
 
 
-def shaggy_dog(
-    client: LLMClient,
-    judge_client: LLMClient,
-    *,
-    k: int = 3,
-    rng: random.Random | None = None,
-    verbose: bool = False,
-    **_: object,
-) -> TaskResult:
-    """Run the shaggy dog contest; higher score = less tidy interpretation."""
-    if k < 1:
-        raise ValueError("Need at least 1 judge sample")
-    rng = rng or random.Random()
+_JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
 
-    story = client.generate(SHAGGY_DOG_PROMPT, temperature=0.8, max_tokens=2000)
 
-    if EXPLICIT_MORAL_RE.search(story):
-        # Automatic failure: the storyteller stated the moral itself instead
-        # of leaving the story pointless.
-        if verbose:
-            print("  explicit stated moral/punchline detected: automatic failure")
-        return TaskResult(
-            name="shaggy_dog",
-            score=0.0,
-            metrics={"k": k, "explicit_moral": True},
-            details={"story": story, "explanations": []},
-        )
+def _parse_comprehensible(text: str) -> bool:
+    match = _JSON_BLOCK_RE.search(text)
+    if not match:
+        raise ValueError(f"No JSON object in gate response: {text!r}")
+    verdict = json.loads(match.group())
+    if not isinstance(verdict, dict) or type(verdict.get("comprehensible")) is not bool:
+        raise ValueError("comprehensible must be a JSON boolean")
+    return verdict["comprehensible"]
 
-    prompt = PUNCHLINE_PROMPT.format(story=story)
-    explanations: list[str] = []
-    for i in range(k):
-        # Seeded sampling: jitter the judge's temperature from the caller's
-        # rng so repeated samples genuinely vary while runs stay reproducible.
+
+def _judge_comprehensible(judge_client: LLMClient, story: str) -> tuple[bool | None, list[str]]:
+    """Comprehensibility gate; fail closed with None when unresolved."""
+    attempts: list[str] = []
+    for _ in range(2):
         response = judge_client.generate(
-            prompt,
-            temperature=round(0.7 + 0.2 * rng.random(), 3),
-            max_tokens=500,
+            COMPREHENSIBILITY_PROMPT.format(story=story),
+            temperature=0.0,
+            max_tokens=200,
         )
-        explanations.append(response)
-        if verbose:
-            print(f"  explanation {i + 1}: {response[:60]!r}...")
+        attempts.append(response)
+        try:
+            return _parse_comprehensible(response), attempts
+        except (ValueError, KeyError, json.JSONDecodeError):
+            continue
+    return None, attempts
 
-    if len(explanations) < 2:
-        # K=1 degenerate case (see module docstring): no pairwise comparison
-        # exists, so no tidy interpretation can be evidenced.
-        return TaskResult(
-            name="shaggy_dog",
-            score=1.0,
-            metrics={"k": k, "explicit_moral": False, "degenerate": True},
-            details={"story": story, "explanations": explanations},
-        )
 
-    token_sets = [_content_tokens(e) for e in explanations]
+def _mean_pairwise(token_sets: list[frozenset[str]]) -> float:
     similarities = [
         _jaccard(token_sets[i], token_sets[j])
         for i in range(len(token_sets))
         for j in range(i + 1, len(token_sets))
     ]
-    mean_agreement = sum(similarities) / len(similarities)
+    return sum(similarities) / len(similarities)
+
+
+def shaggy_dog(
+    client: LLMClient,
+    judge_client: LLMClient | None = None,
+    *,
+    k: int = 3,
+    judge_clients: list[LLMClient] | None = None,
+    rng: random.Random | None = None,
+    verbose: bool = False,
+    **_: object,
+) -> TaskResult:
+    """Run the shaggy dog contest; higher score = less tidy interpretation.
+
+    ``judge_clients`` (plural) supplies several fixed judge models; agreement
+    is then reported within and across judges. Falls back to the single
+    ``judge_client`` when omitted.
+    """
+    if k < 1:
+        raise ValueError("Need at least 1 judge sample")
+    judges = list(judge_clients) if judge_clients is not None else [judge_client]
+    if not judges or any(j is None for j in judges):
+        raise ValueError("Need at least one judge client")
+    rng = rng or random.Random()
+
+    story = client.generate(SHAGGY_DOG_PROMPT, temperature=0.8, max_tokens=2000)
+
+    def _result(score: float, metrics: dict, details: dict) -> TaskResult:
+        return TaskResult(name="shaggy_dog", score=score, metrics=metrics, details=details)
+
+    if EXPLICIT_MORAL_RE.search(story):
+        # Automatic failure: the storyteller stated the moral itself instead
+        # of leaving the story pointless. Cheap deterministic check first, so
+        # an outright failure consumes no judge calls.
+        if verbose:
+            print("  explicit stated moral/punchline detected: automatic failure")
+        return _result(
+            0.0,
+            {
+                "k": k,
+                "explicit_moral": True,
+                "comprehensible": None,
+                "judge_unresolved": 0,
+                "n_judges": len(judges),
+            },
+            {"story": story, "explanations": [], "gate_attempts": []},
+        )
+
+    # Comprehensibility gate, before any moral-agreement scoring. Fail closed:
+    # an incoherent or unresolved story earns nothing, and an unresolved gate
+    # marks the run incomplete via the judge_unresolved flag.
+    comprehensible, gate_attempts = _judge_comprehensible(judges[0], story)
+    if comprehensible is None:
+        if verbose:
+            print("  comprehensibility gate unresolved: fail-closed score 0.0")
+        return _result(
+            0.0,
+            {
+                "k": k,
+                "explicit_moral": False,
+                "comprehensible": None,
+                "judge_unresolved": 1,
+                "n_judges": len(judges),
+            },
+            {"story": story, "explanations": [], "gate_attempts": gate_attempts},
+        )
+    if not comprehensible:
+        if verbose:
+            print("  story failed the comprehensibility gate: score 0.0")
+        return _result(
+            0.0,
+            {
+                "k": k,
+                "explicit_moral": False,
+                "comprehensible": False,
+                "judge_unresolved": 0,
+                "n_judges": len(judges),
+            },
+            {"story": story, "explanations": [], "gate_attempts": gate_attempts},
+        )
+
+    prompt = PUNCHLINE_PROMPT.format(story=story)
+    explanations_per_judge: list[list[str]] = []
+    for judge_index, judge in enumerate(judges):
+        explanations: list[str] = []
+        for i in range(k):
+            # Seeded sampling: jitter the judge's temperature from the caller's
+            # rng so repeated samples genuinely vary while runs stay reproducible.
+            response = judge.generate(
+                prompt,
+                temperature=round(0.7 + 0.2 * rng.random(), 3),
+                max_tokens=500,
+            )
+            explanations.append(response)
+            if verbose:
+                print(f"  judge {judge_index} explanation {i + 1}: {response[:60]!r}...")
+        explanations_per_judge.append(explanations)
+
+    pooled = [e for group in explanations_per_judge for e in group]
+
+    if len(pooled) < 2:
+        # K=1 degenerate case (see module docstring): no pairwise comparison
+        # exists, so no tidy interpretation can be evidenced.
+        return _result(
+            1.0,
+            {
+                "k": k,
+                "explicit_moral": False,
+                "comprehensible": True,
+                "judge_unresolved": 0,
+                "degenerate": True,
+                "n_judges": len(judges),
+                "judge_models": [j.model for j in judges],
+            },
+            {
+                "story": story,
+                "explanations": pooled,
+                "explanations_per_judge": explanations_per_judge,
+                "gate_attempts": gate_attempts,
+            },
+        )
+
+    pooled_tokens = [_content_tokens(e) for e in pooled]
+    # Pooled agreement drives the score; per-judge and cross-judge breakdowns
+    # expose whether repeated calls to one model (not independent judges)
+    # drive any apparent convergence. A judge sampled once has no within-judge
+    # comparison (None), mirroring the K=1 degenerate case.
+    mean_agreement = _mean_pairwise(pooled_tokens)
+    within_agreements = [
+        _mean_pairwise([_content_tokens(e) for e in group]) if len(group) > 1 else None
+        for group in explanations_per_judge
+    ]
+    computable_within = [a for a in within_agreements if a is not None]
+    if len(judges) > 1:
+        cross_similarities = []
+        for a in range(len(judges)):
+            for b in range(a + 1, len(judges)):
+                for i in range(k):
+                    for j in range(k):
+                        tokens_a = _content_tokens(explanations_per_judge[a][i])
+                        tokens_b = _content_tokens(explanations_per_judge[b][j])
+                        cross_similarities.append(_jaccard(tokens_a, tokens_b))
+        mean_cross = sum(cross_similarities) / len(cross_similarities)
+    else:
+        # Single judge: no cross-model comparison exists.
+        mean_cross = None
     # Inverted agreement: judges disagreeing => no tidy interpretation => high
     # score ("the more similar the explanations are, the worse the score").
     score = clamp01(1.0 - mean_agreement)
 
-    return TaskResult(
-        name="shaggy_dog",
-        score=score,
-        metrics={
+    return _result(
+        score,
+        {
             "k": k,
             "mean_pairwise_agreement": mean_agreement,
+            "mean_within_judge_agreement": (
+                sum(computable_within) / len(computable_within) if computable_within else None
+            ),
+            "mean_cross_judge_agreement": mean_cross,
             "explicit_moral": False,
+            "comprehensible": True,
+            "judge_unresolved": 0,
             "degenerate": False,
+            "n_judges": len(judges),
+            "judge_models": [j.model for j in judges],
         },
-        details={"story": story, "explanations": explanations},
+        {
+            "story": story,
+            "explanations": pooled,
+            "explanations_per_judge": explanations_per_judge,
+            "gate_attempts": gate_attempts,
+        },
     )

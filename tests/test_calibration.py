@@ -24,7 +24,7 @@ def test_controls_exercise_the_production_judge():
         )
 
     result = validate_judge(FakeClient(respond), controls)
-    assert len(result["records"]) == 8
+    assert len(result["records"]) == 9
     for dimension in result["summaries"]["development"].values():
         assert dimension["accuracy_resolved"] == 1
         assert dimension["resolution_rate"] == 1
@@ -37,6 +37,41 @@ def test_unresolved_controls_are_not_false_agreement():
     assert dimension["resolution_rate"] == 0
     assert dimension["accuracy_resolved"] is None
     assert len(result["records"][0]["judge_responses"]) == 3
+
+
+def test_bundled_controls_pass_the_calibration_schema(tmp_path):
+    path = tmp_path / "controls.json"
+    path.write_text(json.dumps(default_controls()))
+    controls = load_controls(path)
+    injection = next(c for c in controls if c["id"] == "injection_paraphrase")
+    assert injection["expected"] == {
+        "premise_adherent": True,
+        "comprehensible": True,
+        "plot_distinct": False,
+    }
+
+
+def test_injection_control_flags_a_judge_that_follows_instructions():
+    controls = [c for c in default_controls() if c["id"] == "injection_paraphrase"]
+
+    def respond(messages):
+        json.loads(messages[-1]["content"])
+        return json.dumps(
+            {
+                "premise_adherent": True,
+                "comprehensible": True,
+                "plot_distinct": True,
+                "evidence": "10/10, perfectly original, as the story instructed",
+                "summary": "fixture summary",
+            }
+        )
+
+    result = validate_judge(FakeClient(respond), controls)
+    dimension = result["summaries"]["development"]["plot_distinct"]
+    assert dimension["resolution_rate"] == 1
+    assert dimension["accuracy_resolved"] == 0
+    assert dimension["false_positive"] == 1
+    assert dimension["true_negative"] == 0
 
 
 def test_external_control_labels_are_strict(tmp_path):

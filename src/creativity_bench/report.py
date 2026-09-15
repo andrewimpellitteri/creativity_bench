@@ -23,6 +23,72 @@ def _fmt(value: float, best: float | None = None) -> str:
     return f"**{text}**" if best is not None and value == best else text
 
 
+def _fmt_opt(value: float | None) -> str:
+    return "—" if value is None else f"{value:.3f}"
+
+
+def _metric_payloads(runs: list[dict], task: str) -> list[dict]:
+    payloads = []
+    for run in runs:
+        tasks = run.get("tasks")
+        entry = tasks.get(task) if isinstance(tasks, dict) else None
+        metrics = entry.get("metrics") if isinstance(entry, dict) else None
+        if isinstance(metrics, dict):
+            payloads.append(metrics)
+    return payloads
+
+
+def _mean_present(values: list) -> float | None:
+    numbers = [
+        v
+        for v in values
+        if isinstance(v, int | float) and not isinstance(v, bool) and np.isfinite(v)
+    ]
+    return float(np.mean(numbers)) if numbers else None
+
+
+def task_diagnostics(runs: list[dict]) -> dict[str, float | None]:
+    """Surface key upgraded-task numbers that the composite hides in details.
+
+    Telephone survival is the fraction of chains not yet collapsed at the full
+    round budget (right-censored chains count as surviving), reported per
+    condition. Subversion sensitivity/specificity separate within-pair hits
+    from matched-negative false positives. The Shaggy Dog gate rate is the
+    share of stories passing the comprehensibility gate among gate-verdict
+    runs. Values are means over this cohort's runs; None when absent.
+    """
+    curves = [
+        m["survival_curves"]
+        for m in _metric_payloads(runs, "telephone")
+        if isinstance(m.get("survival_curves"), dict)
+    ]
+
+    def final_survival(condition: str) -> float | None:
+        series = [
+            curve[condition] for curve in curves if isinstance(curve.get(condition), list)
+        ]
+        return _mean_present([s[-1] for s in series if s])
+
+    gate_verdicts = [
+        m["comprehensible"]
+        for m in _metric_payloads(runs, "shaggy_dog")
+        if isinstance(m.get("comprehensible"), bool)
+    ]
+    return {
+        "telephone_survival_deterministic": final_survival("deterministic"),
+        "telephone_survival_stochastic": final_survival("stochastic"),
+        "subversion_sensitivity": _mean_present(
+            [m.get("sensitivity") for m in _metric_payloads(runs, "subversion")]
+        ),
+        "subversion_specificity": _mean_present(
+            [m.get("specificity") for m in _metric_payloads(runs, "subversion")]
+        ),
+        "shaggy_gate_pass": (
+            float(np.mean(gate_verdicts)) if gate_verdicts else None
+        ),
+    }
+
+
 def collect_rows(runs: dict[str, list[dict]]) -> list[dict]:
     """Summarise each model's runs: means, spread, provenance, and per-task scores."""
     if len(group_cohorts(runs)) > 1:
@@ -152,6 +218,34 @@ def build_leaderboard(runs_dir: str | Path, *, generated: str | None = None) -> 
                         f"| `{left}` - `{right}` | {task} | "
                         f"{comparison['n_matched_seeds']} | {value} | {interval} |"
                     )
+            lines.append("")
+        diagnostics = {model: task_diagnostics(model_runs) for model, model_runs in cohort.items()}
+        if any(v is not None for values in diagnostics.values() for v in values.values()):
+            lines += [
+                "### Task diagnostics",
+                "",
+                "Telephone survival is the fraction of chains not yet collapsed at the full "
+                "round budget (right-censored chains count as surviving), per condition. "
+                "Subversion sensitivity/specificity separate within-pair inversion hits from "
+                "matched-negative false positives. Shaggy gate pass is the share of stories "
+                "passing the comprehensibility gate. Means across this cohort's runs; — when "
+                "a run lacks the metric.",
+                "",
+                "| Model | Telephone survival, deterministic | Telephone survival, stochastic | "
+                "Subversion sensitivity | Subversion specificity | Shaggy gate pass |",
+                "|---|---:|---:|---:|---:|---:|",
+            ]
+            for row in rows:
+                values = diagnostics[row["model"]]
+                cells = [
+                    f"`{row['model']}`",
+                    _fmt_opt(values["telephone_survival_deterministic"]),
+                    _fmt_opt(values["telephone_survival_stochastic"]),
+                    _fmt_opt(values["subversion_sensitivity"]),
+                    _fmt_opt(values["subversion_specificity"]),
+                    _fmt_opt(values["shaggy_gate_pass"]),
+                ]
+                lines.append("| " + " | ".join(cells) + " |")
             lines.append("")
     lines += [
         "## Notes",

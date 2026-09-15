@@ -116,7 +116,7 @@ def export_packet(runs_dir: Path, out: Path, controls: Path | None = None, seed:
     if not items:
         raise ValueError("No reviewable stories found")
     # Refuse to overwrite any existing packet or ratings.
-    if out.exists() and any(out.iterdir()):
+    if out.exists() and (not out.is_dir() or any(out.iterdir())):
         raise ValueError("Output directory must be new or empty")
     public, key = [], {}
     for occurrence, (item, provenance) in enumerate(items):

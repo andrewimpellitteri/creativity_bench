@@ -36,6 +36,7 @@ _SIZES = {
     "n_words": (40, 10),
     "judges": (5, 3),
     "max_iter": (8, 3),
+    "telephone_premises": (4, 2),
     "max_edits": (8, 3),
     "samples": (8, 4),
     "n_stories": (7, 2),
@@ -115,7 +116,12 @@ def run_benchmark(
     task_rngs = {name: random.Random(f"{seed}:{name}") for name in TASKS}
     task_kwargs = {
         "free_association": dict(n_words=size["n_words"]),
-        "telephone": dict(embedder=embedder, seed_text=seed_text, max_iter=size["max_iter"]),
+        "telephone": dict(
+            embedder=embedder,
+            premises=task_rngs["telephone"].sample(data.STORY_PROMPTS, size["telephone_premises"]),
+            conditions=("deterministic", "stochastic"),
+            max_iter=size["max_iter"],
+        ),
         "camels_back": dict(
             judge_client=judge_client,
             seed_text=seed_text,
@@ -124,7 +130,12 @@ def run_benchmark(
             rng=rng,
         ),
         "diversity": dict(embedder=embedder, samples=size["samples"], rng=rng),
-        "shaggy_dog": dict(judge_client=judge_client, k=size["judges"], rng=rng),
+        "shaggy_dog": dict(
+            judge_client=judge_client,
+            judge_clients=[judge_client],
+            k=size["judges"],
+            rng=rng,
+        ),
         "style_transfer": dict(
             judge_client=judge_client,
             embedder=embedder,
@@ -198,6 +209,7 @@ def run_benchmark(
             ),
             "protocol_version": PROTOCOL_VERSION,
             "task_sizes": size,
+            "telephone_conditions": ["deterministic", "stochastic"],
             "selected_tasks": task_names,
             "generation_usage": _usage_delta(client, usage_before["generation"]),
             "judge_usage": (
