@@ -25,7 +25,7 @@ run_one () {
     --runs-dir "$OUT"
 }
 
-for seed in 0 1; do
+for seed in 0; do  # seed 1 is a later idempotent pass
   run_one deepseek-flash deepseek $seed
   run_one deepseek-v4-pro deepseek $seed
   run_one glm-4.6 zai-coding $seed
