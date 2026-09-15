@@ -29,15 +29,15 @@ for seed in 0 1; do
   run_one deepseek-flash deepseek $seed
   run_one deepseek-v4-pro deepseek $seed
   run_one glm-4.6 zai-coding $seed
-  run_one glm-5 zai-coding $seed
+  run_one glm-5.3-flash zai-coding $seed
   run_one glm-5-turbo zai-coding $seed
   run_one glm-4.5-air zai-coding $seed
 done
 
 if [[ -n "$OPENROUTER_API_KEY" ]]; then
-  for m in google/gemini-2.5-flash google/gemini-2.0-flash-001 \
-           mistralai/mistral-small-3.2 meta-llama/llama-4-scout \
-           anthropic/claude-3.5-haiku openai/gpt-4o-mini; do
+  for m in google/gemini-2.5-flash openai/gpt-4o-mini \
+           meta-llama/llama-4-scout anthropic/claude-haiku-4.5 \
+           mistralai/mistral-small-3.2-24b-instruct moonshotai/kimi-k2.5; do
     for seed in 0 1; do
       run_one "$m" openrouter $seed
     done
