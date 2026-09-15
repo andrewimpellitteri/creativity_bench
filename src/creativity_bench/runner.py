@@ -130,7 +130,12 @@ def run_benchmark(
             rng=rng,
         ),
         "diversity": dict(embedder=embedder, samples=size["samples"], rng=rng),
-        "shaggy_dog": dict(judge_client=judge_client, k=size["judges"], rng=rng),
+        "shaggy_dog": dict(
+            judge_client=judge_client,
+            judge_clients=[judge_client],
+            k=size["judges"],
+            rng=rng,
+        ),
         "style_transfer": dict(
             judge_client=judge_client,
             embedder=embedder,
