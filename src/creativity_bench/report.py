@@ -35,7 +35,8 @@ def collect_rows(runs: dict[str, list[dict]]) -> list[dict]:
         fast = any((r.get("metadata") or {}).get("fast") for r in model_runs)
         rows.append(
             {
-                "model": model + (" ⚡" if fast else ""),
+                "model": model,
+                "fast": fast,
                 "provider": ", ".join(providers),
                 "composite": float(np.mean(composites)),
                 "std": float(np.std(composites)),
@@ -89,20 +90,21 @@ def build_leaderboard(runs_dir: str | Path, *, generated: str | None = None) -> 
             _fmt(row["tasks"][t], None if np.isnan(best_tasks[t]) else best_tasks[t])
             for t in TASK_ORDER
         ]
+        model_cell = f"`{row['model']}`" + (" ⚡" if row["fast"] else "")
         lines.append(
-            f"| {i} | `{row['model']}` | {composite} | "
+            f"| {i} | {model_cell} | {composite} | "
             + " | ".join(task_cells)
             + f" | {row['n']} | {row['seeds']} | {row['judge']} | {row['dates']} |"
         )
 
     lines += ["", "## Notes", ""]
-    if any("⚡" in row["model"] for row in rows):
+    if any(row["fast"] for row in rows):
         lines.append(
             "- ⚡ marks a model run with `--fast` (about 3x smaller task sizes), used when an "
             "endpoint cannot sustain full-size runs; its scores are not directly comparable "
             "to full-size runs."
         )
-    if any(row["model"].rstrip(" ⚡") in row["judge"] for row in rows):
+    if any(row["model"] in row["judge"] for row in rows):
         lines.append(
             "- At least one model graded its own outputs (see the Judge column); treat its "
             "judge-dependent task scores with extra caution."
