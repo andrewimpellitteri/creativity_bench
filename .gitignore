@@ -174,3 +174,6 @@ runs/
 # macOS
 .DS_Store
 logs/
+
+# Published leaderboard inputs (copies of runs/ JSONs)
+!results/runs/
