@@ -160,14 +160,32 @@ implementation work.
 
 ## Remaining research work
 
-1. Obtain independent judgments and a held-out control corpus, including style
+Completed since the audit (through 2026-09-15; see
+`results/extended-20260915/FINDINGS.md`):
+
+- Same But Different designed, judge-gated, and piloted live across two DeepSeek
+  models and four seeds (fast budget; 23/24 attempts valid and plot-distinct).
+- Judge control set grew to nine development controls including an
+  instruction-bearing candidate; `deepseek-v4-pro` resolves all at 100%
+  (development evidence, not human agreement).
+- Legacy validity upgrades implemented: shared Camel's Back edit schedules,
+  Telephone deterministic/stochastic conditions with censored survival curves,
+  Subversion named inversion dimensions, Shaggy Dog comprehensibility gate and
+  multi-judge scaffolding.
+- Fast five-task suite run with costs recorded; fast sizes saturate free
+  association, Camel's Back and Subversion for these models.
+
+Still open, in priority order:
+
+1. Obtain independent human judgments on the blinded packet
+   (`results/human-review-20260915`) and a held-out control corpus, including style
    transfer and category membership. Check evaluator self-preference and sensitivity
    to judge choice, paraphrasing and adversarial instructions.
-2. Run the matched pilot and inspect acceptance saturation, uncertainty and actual
-   costs before increasing budgets or publishing comparisons.
-3. Improve legacy Camel's Back schedules, calibrate Telephone convergence and
-   deterministic/stochastic conditions, and redesign ambiguous Subversion negatives
-   and Shaggy Dog's lexical moral-agreement score. These remain exploratory.
+2. Run full-budget Same But Different (10 attempts) to measure acceptance
+   saturation before increasing budgets or publishing comparisons.
+3. Re-judge saved transcripts with alternative judges (transcripts are saved; no
+   regeneration cost), exercise the multi-judge Shaggy Dog panel, and calibrate
+   Telephone convergence thresholds on labeled pairs.
 4. Validate transfer from these task profiles to blinded assessments of useful
    creative writing. No software test can establish that relationship alone.
 
