@@ -28,10 +28,10 @@ run_one () {
 for seed in 0 1; do
   run_one deepseek-flash deepseek $seed
   run_one deepseek-v4-pro deepseek $seed
-  run_one glm-4.6 zai $seed
-  run_one glm-5 zai $seed
-  run_one glm-5-turbo zai $seed
-  run_one glm-4.5-air zai $seed
+  run_one glm-4.6 zai-coding $seed
+  run_one glm-5 zai-coding $seed
+  run_one glm-5-turbo zai-coding $seed
+  run_one glm-4.5-air zai-coding $seed
 done
 
 if [[ -n "$OPENROUTER_API_KEY" ]]; then
