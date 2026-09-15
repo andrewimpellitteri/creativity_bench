@@ -32,9 +32,10 @@ def collect_rows(runs: dict[str, list[dict]]) -> list[dict]:
         seeds = sorted({r["seed"] for r in model_runs if r.get("seed") is not None})
         providers = sorted({r.get("provider", "?") for r in model_runs})
         dates = sorted((r.get("metadata") or {}).get("timestamp", "")[:10] for r in model_runs)
+        fast = any((r.get("metadata") or {}).get("fast") for r in model_runs)
         rows.append(
             {
-                "model": model,
+                "model": model + (" ⚡" if fast else ""),
                 "provider": ", ".join(providers),
                 "composite": float(np.mean(composites)),
                 "std": float(np.std(composites)),
@@ -95,7 +96,13 @@ def build_leaderboard(runs_dir: str | Path, *, generated: str | None = None) -> 
         )
 
     lines += ["", "## Notes", ""]
-    if any(row["model"] in row["judge"] for row in rows):
+    if any("⚡" in row["model"] for row in rows):
+        lines.append(
+            "- ⚡ marks a model run with `--fast` (about 3x smaller task sizes), used when an "
+            "endpoint cannot sustain full-size runs; its scores are not directly comparable "
+            "to full-size runs."
+        )
+    if any(row["model"].rstrip(" ⚡") in row["judge"] for row in rows):
         lines.append(
             "- At least one model graded its own outputs (see the Judge column); treat its "
             "judge-dependent task scores with extra caution."

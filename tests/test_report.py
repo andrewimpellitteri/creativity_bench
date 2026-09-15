@@ -131,3 +131,28 @@ def test_write_leaderboard_creates_parents_and_returns_path(tmp_path, runs_dir):
     assert returned == out
     assert out.exists()
     assert out.read_text().startswith("# Creativity Bench — Leaderboard")
+
+
+def test_fast_run_flagged_and_noted(runs_dir):
+    write_run(runs_dir, "f.json", model="alpha", composite=0.5, scores=FULL_SCORES)
+    payload = json.loads((runs_dir / "f.json").read_text())
+    payload["metadata"]["fast"] = True
+    (runs_dir / "f.json").write_text(json.dumps(payload))
+
+    text = build_leaderboard(runs_dir, generated="2026-09-15")
+
+    assert "`alpha` ⚡" in text
+    assert "not directly comparable" in text
+
+
+def test_self_judge_detection_ignores_fast_marker(runs_dir):
+    write_run(
+        runs_dir, "s.json", model="judge-x", composite=0.5, scores=FULL_SCORES, judge="judge-x"
+    )
+    payload = json.loads((runs_dir / "s.json").read_text())
+    payload["metadata"]["fast"] = True
+    (runs_dir / "s.json").write_text(json.dumps(payload))
+
+    text = build_leaderboard(runs_dir, generated="2026-09-15")
+
+    assert "graded its own outputs" in text
