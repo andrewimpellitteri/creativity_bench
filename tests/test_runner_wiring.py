@@ -85,3 +85,78 @@ def test_shaggy_dog_wiring_passes_judge_panel_and_gate_metrics_appear():
     assert len(task.details["explanations"]) == result.metadata["task_sizes"]["judges"]
     assert task.score == pytest.approx(1.0)
     assert result.metadata["evaluation_complete"] is True
+
+
+def _write_run(runs_dir, name, model, *, seed=0, tasks=None):
+    import json
+
+    from creativity_bench.comparison import PROVENANCE_FIELDS
+
+    scores = {"telephone": 0.5, "subversion": 0.5, "shaggy_dog": 0.25}
+    payload = {
+        "schema_version": 2,
+        "model": model,
+        "provider": "openai",
+        "composite": 0.5,
+        "scores": scores,
+        "weights": {t: 1 / len(scores) for t in scores},
+        "seed": seed,
+        "duration_seconds": 1.0,
+        "metadata": {
+            **{f: "test" for f in PROVENANCE_FIELDS},
+            "timestamp": "2026-09-15T12:00:00",
+            "judge_model": "judge-x",
+            "fast": False,
+            "selected_tasks": sorted(scores),
+            "generation_provider": "openai",
+            "task_sizes": {"telephone_premises": 2},
+            "generation_settings": {"policy": "test"},
+            "judge_settings": {"policy": "test"},
+            "evaluation_complete": True,
+        },
+        "tasks": tasks or [],
+    }
+    (runs_dir / name).write_text(json.dumps(payload))
+
+
+def test_report_renders_new_task_metrics(tmp_path):
+    from creativity_bench.report import build_leaderboard
+
+    runs_dir = tmp_path / "runs"
+    runs_dir.mkdir()
+    upgraded_tasks = {
+        "telephone": {
+            "name": "telephone",
+            "score": 0.5,
+            "metrics": {
+                "survival_curves": {
+                    "deterministic": [1.0, 0.25],
+                    "stochastic": [1.0, 0.75],
+                }
+            },
+            "details": {},
+        },
+        "subversion": {
+            "name": "subversion",
+            "score": 0.5,
+            "metrics": {"sensitivity": 1.0, "specificity": 0.5},
+            "details": {},
+        },
+        "shaggy_dog": {
+            "name": "shaggy_dog",
+            "score": 0.25,
+            "metrics": {"comprehensible": True},
+            "details": {},
+        },
+    }
+    _write_run(runs_dir, "a.json", "alpha", tasks=upgraded_tasks)
+    _write_run(runs_dir, "b.json", "legacy", seed=1)
+
+    text = build_leaderboard(runs_dir, generated="2026-09-15")
+
+    assert "### Task diagnostics" in text
+    assert (
+        "| `alpha` | 0.250 | 0.750 | 1.000 | 0.500 | 1.000 |" in text
+    ), text
+    # Legacy runs without task payloads render as em dashes, not crashes.
+    assert "| `legacy` | — | — | — | — | — |" in text
