@@ -130,6 +130,41 @@ The validation command makes real judge API calls.
   creative achievement are different quantities. Several legacy tasks remain
   exploratory (see the task audit).
 
+## Results
+
+Development results from this repo's own pilots — a demonstration of the
+tooling, not a validated measurement.
+
+### Same But Different pilot (protocol `0.4-validity`)
+
+Matched fast pilot (2 premises × 3 attempts, seeds 0–1) with the judge pinned
+to `deepseek-v4-pro`, which passed all 8 development controls (100% resolution
+and accuracy on premise adherence, comprehensibility and plot distinctness).
+The judge also graded its own runs, so self-preference bias is possible and
+unquantified.
+
+| Model | Seed 0 | Seed 1 | Mean |
+|---|---|---|---|
+| `deepseek-flash` | 1.000 | 1.000 | 1.000 |
+| `deepseek-v4-pro` | 0.833 | 1.000 | 0.917 |
+
+`deepseek-v4-pro`'s single rejection is legible in the saved evidence: the
+story was adherent and comprehensible but reused an accepted story's
+resolution arc (a family keepsake standing in for the whole home) with new
+surface details. Stories, verdicts and per-premise acceptance curves are in
+[`results/pilot-20260915/`](results/pilot-20260915/leaderboard.md), with an
+inspectable gallery per run
+([example](results/pilot-20260915/gallery/deepseek-v4-pro_20260915-161839_a4a04a.html)).
+
+### Legacy 8-task profiles (pre-protocol audit)
+
+The full legacy suite ran once per model on the pre-0.4 scoring code
+(`deepseek-chat` 0.567, `gpt-4o-mini` 0.535, `gpt-5-mini` 0.625 exploratory
+composites, shared `gpt-5-mini` judge). Provenance is unverified under
+protocol 0.4, so the report refuses to pool or chart them: each profile is
+shown separately in
+[`results/legacy-leaderboard.md`](results/legacy-leaderboard.md).
+
 ## Cost and budgets
 
 `--fast` is a smoke test, not comparable to full runs. Same But Different uses
