@@ -170,7 +170,11 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-runs/
+# Local benchmark artifacts; published copies live under results/ (committed)
+/runs/
 # macOS
 .DS_Store
-logs/
+/logs/
+
+# Published leaderboard inputs (copies of runs/ JSONs)
+!results/runs/

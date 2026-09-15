@@ -24,6 +24,7 @@ PROVIDERS: dict[str, Provider] = {
     "zai": Provider("zai", "https://api.z.ai/api/paas/v4", "ZAI_API_KEY"),
     # GLM Coding Plan keys only work against the coding endpoint:
     "zai-coding": Provider("zai-coding", "https://api.z.ai/api/coding/paas/v4", "ZAI_API_KEY"),
+    "deepseek": Provider("deepseek", "https://api.deepseek.com", "DEEPSEEK_API_KEY"),
     "openrouter": Provider("openrouter", "https://openrouter.ai/api/v1", "OPENROUTER_API_KEY"),
     "custom": Provider("custom", None, "LLM_API_KEY"),
 }
@@ -94,6 +95,7 @@ class LLMClient:
     max_retries: int = 4
     timeout: float = 120.0
     usage: Usage = field(default_factory=Usage)
+    request_log: list[dict] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self._client = OpenAI(
@@ -150,7 +152,9 @@ class LLMClient:
                     raise
                 last_error = e
             if attempt < self.max_retries:
-                time.sleep(min(2**attempt, 30))
+                # Cap at 60s: some rate-limited plans (e.g. GLM Coding Plan) use
+                # throttle windows longer than 30s.
+                time.sleep(min(2**attempt, 60))
         raise RuntimeError(f"Generation failed after {self.max_retries + 1} attempts: {last_error}")
 
     def _request(
@@ -184,6 +188,14 @@ class LLMClient:
                 raise
         self.usage.add(getattr(response, "usage", None))
         choice = response.choices[0]
+        self.request_log.append(
+            {
+                "temperature": kwargs.get("temperature"),
+                "max_tokens": max_tokens,
+                "finish_reason": choice.finish_reason,
+                "response_model": getattr(response, "model", None),
+            }
+        )
         text = choice.message.content or ""
         return THINK_TAG_RE.sub("", text).strip(), choice.finish_reason
 

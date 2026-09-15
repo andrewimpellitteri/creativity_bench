@@ -59,11 +59,10 @@ def _parse_verdict(text: str) -> EditVerdict:
     if not match:
         raise ValueError(f"No JSON object in judge response: {text!r}")
     payload = json.loads(match.group())
-    return EditVerdict(
-        coherent=bool(payload["coherent"]),
-        edits_applied=bool(payload["edits_applied"]),
-        quality_maintained=bool(payload["quality_maintained"]),
-    )
+    fields = ("coherent", "edits_applied", "quality_maintained")
+    if not isinstance(payload, dict) or any(type(payload[k]) is not bool for k in fields):
+        raise ValueError("Judge verdict fields must be JSON booleans")
+    return EditVerdict(**{k: payload[k] for k in fields})
 
 
 def judge_edit(

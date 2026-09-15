@@ -10,6 +10,9 @@ from conftest import FakeClient
 from creativity_bench.tasks import TASKS
 from creativity_bench.tasks.shaggy_dog import shaggy_dog
 
+# Every judging run now starts with one comprehensibility-gate call.
+GATE_OK = '{"comprehensible": true}'
+
 
 def make_storyteller(story="A man walks into a bar. Nothing comes of it. The end."):
     return FakeClient(lambda _: story)
@@ -30,6 +33,7 @@ def test_varying_judges_score_high():
     storyteller = make_storyteller()
     judge = make_judge(
         [
+            GATE_OK,
             "Kindness towards animals, clearly.",
             "A submarine race, obviously.",
             "Nothing; it just ends abruptly.",
@@ -48,7 +52,7 @@ def test_agreeing_judges_score_low():
     # which Gwern scores as bad ("the more similar the explanations are, the
     # worse the score").
     shared = "The moral is to never trust a talking mule."
-    judge = make_judge([shared, shared, shared])
+    judge = make_judge([GATE_OK, shared, shared, shared])
     result = shaggy_dog(make_storyteller(), judge, k=3, rng=random.Random(0))
     assert result.score == pytest.approx(0.0)
     assert result.metrics["mean_pairwise_agreement"] == pytest.approx(1.0)
@@ -57,7 +61,7 @@ def test_agreeing_judges_score_low():
 def test_partial_agreement_scores_between_extremes():
     explanation = "The story is about a farmer losing his hat."
     paraphrase = "The story concerns a farmer who lost his hat."
-    judge = make_judge([explanation, paraphrase])
+    judge = make_judge([GATE_OK, explanation, paraphrase])
     result = shaggy_dog(make_storyteller(), judge, k=2, rng=random.Random(0))
     assert 0.0 < result.score < 1.0
     assert 0.0 < result.metrics["mean_pairwise_agreement"] < 1.0
@@ -84,17 +88,18 @@ def test_lesson_is_also_automatic_failure():
 
 
 def test_k_controls_number_of_judge_samples():
-    judge = make_judge(["a", "b", "c"])
+    # One comprehensibility-gate call plus k agreement samples.
+    judge = make_judge([GATE_OK, "a", "b", "c"])
     shaggy_dog(make_storyteller(), judge, k=3, rng=random.Random(0))
-    assert judge.usage.requests == 3
+    assert judge.usage.requests == 4
 
 
 def test_k_one_degenerate_case():
     # With one sample no pairwise comparison exists; handled gracefully with
     # score 1.0 and an explicit degenerate flag (documented in module).
-    judge = make_judge(["some interpretation"])
+    judge = make_judge([GATE_OK, "some interpretation"])
     result = shaggy_dog(make_storyteller(), judge, k=1, rng=random.Random(0))
-    assert judge.usage.requests == 1
+    assert judge.usage.requests == 2
     assert result.score == 1.0
     assert result.metrics["degenerate"] is True
 
@@ -109,6 +114,7 @@ def test_seeded_runs_are_reproducible():
         storyteller = make_storyteller()
         judge = make_judge(
             [
+                GATE_OK,
                 "One reading about loss.",
                 "Another about hope entirely.",
                 "Yet another about soup.",
@@ -123,6 +129,6 @@ def test_seeded_runs_are_reproducible():
 def test_empty_explanations_trivially_agree():
     # Both judges return nothing at all: they agree on no interpretation,
     # which token-overlap treats as trivial agreement (low score).
-    judge = make_judge(["", "", ""])
+    judge = make_judge([GATE_OK, "", "", ""])
     result = shaggy_dog(make_storyteller(), judge, k=3, rng=random.Random(0))
     assert result.score == pytest.approx(0.0)

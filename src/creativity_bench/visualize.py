@@ -8,6 +8,8 @@ from pathlib import Path
 
 import numpy as np
 
+from .comparison import group_cohorts, verified_provenance
+
 # Validated categorical palette (light surface), fixed slot order — never cycled.
 SERIES_COLORS = [
     "#2a78d6",
@@ -25,13 +27,27 @@ INK_MUTED = "#898781"
 GRIDLINE = "#e1e0d9"
 BASELINE = "#c3c2b7"
 
-TASK_ORDER = ["free_association", "telephone", "camels_back", "diversity", "style_transfer"]
+TASK_ORDER = [
+    "same_but_different",
+    "free_association",
+    "telephone",
+    "camels_back",
+    "diversity",
+    "style_transfer",
+    "odd_one_out",
+    "subversion",
+    "shaggy_dog",
+]
 TASK_LABELS = {
+    "same_but_different": "Same but\ndifferent",
     "free_association": "Free\nassociation",
     "telephone": "Telephone\ngame",
     "camels_back": "Camel's\nback",
     "diversity": "Diversity",
     "style_transfer": "Style\ntransfer",
+    "odd_one_out": "Odd one\nout",
+    "subversion": "Subversion",
+    "shaggy_dog": "Shaggy\ndog",
 }
 
 
@@ -44,8 +60,53 @@ def load_runs(runs_dir: str | Path) -> dict[str, list[dict]]:
         except json.JSONDecodeError:
             print(f"Skipping {path.name}: not valid JSON")
             continue
-        if payload.get("schema_version") != 2:
+        if not isinstance(payload, dict) or payload.get("schema_version") != 2:
             print(f"Skipping {path.name}: old or unknown result format")
+            continue
+
+        def valid_score(value):
+            return (
+                isinstance(value, int | float)
+                and not isinstance(value, bool)
+                and np.isfinite(value)
+                and 0 <= value <= 1
+            )
+
+        scores = payload.get("scores")
+        metadata = payload.get("metadata")
+        seed = payload.get("seed")
+        metadata_malformed = isinstance(metadata, dict) and (
+            not isinstance(metadata.get("timestamp", ""), str)
+            or any(
+                metadata.get(field) is not None and not isinstance(metadata[field], str)
+                for field in (
+                    "judge_model",
+                    "judge_provider",
+                    "embed_model",
+                    "embed_provider",
+                    "generation_provider",
+                    "protocol_version",
+                    "protocol_fingerprint",
+                )
+            )
+            or any(
+                field in metadata and type(metadata[field]) is not bool
+                for field in ("fast", "evaluation_complete")
+            )
+        )
+        if (
+            not isinstance(payload.get("model"), str)
+            or not payload["model"].strip()
+            or not isinstance(payload.get("provider"), str)
+            or not valid_score(payload.get("composite"))
+            or not isinstance(scores, dict)
+            or not scores
+            or any(not isinstance(k, str) or not valid_score(v) for k, v in scores.items())
+            or (metadata is not None and not isinstance(metadata, dict))
+            or (seed is not None and type(seed) is not int)
+            or metadata_malformed
+        ):
+            print(f"Skipping {path.name}: malformed run payload or non-finite/out-of-range scores")
             continue
         runs[payload["model"]].append(payload)
     return dict(runs)
@@ -62,16 +123,33 @@ def plot_comparison(
     if not runs:
         print(f"No usable run files in {runs_dir}/. Run `creativity-bench run` first.")
         return 1
+    if any(
+        (r.get("metadata") or {}).get("evaluation_complete") is False
+        for rs in runs.values()
+        for r in rs
+    ):
+        print(
+            "Cannot chart incomplete evaluations. Generate a report to inspect exclusions "
+            "and use a directory of complete evaluations."
+        )
+        return 1
+    cohorts = group_cohorts(runs)
+    if len(cohorts) != 1 or not all(verified_provenance(r) for rs in runs.values() for r in rs):
+        print(
+            "Cannot chart mixed or unverified protocol cohorts. Generate a report to inspect "
+            "cohorts, then copy one verified cohort into a separate runs directory."
+        )
+        return 1
     if len(runs) > len(SERIES_COLORS):
         print(f"Plotting the first {len(SERIES_COLORS)} models; fold the rest into another chart.")
         runs = dict(list(runs.items())[: len(SERIES_COLORS)])
 
     # Sort models by mean composite, best first; color follows the model.
-    models = sorted(runs, key=lambda m: -np.mean([r["composite"] for r in runs[m]]))
+    models = sorted(runs)
     colors = {model: SERIES_COLORS[i] for i, model in enumerate(models)}
 
-    fig, (ax_top, ax_bottom) = plt.subplots(
-        2, 1, figsize=(11, 8), height_ratios=[1, 1.4], facecolor=SURFACE
+    fig, (ax_bottom, ax_top) = plt.subplots(
+        2, 1, figsize=(14, 8), height_ratios=[1.4, 1], facecolor=SURFACE
     )
 
     # Top: composite score per model, with std-dev error bars across repeat runs.
@@ -99,7 +177,9 @@ def plot_comparison(
             color=INK_PRIMARY,
         )
     ax_top.set_xticks(x, models, fontsize=10)
-    ax_top.set_title("Composite creativity score", loc="left", fontsize=12, color=INK_PRIMARY)
+    ax_top.set_title(
+        "Exploratory composite (unvalidated weighting)", loc="left", fontsize=12, color=INK_PRIMARY
+    )
 
     # Bottom: per-task mean scores, grouped by task, one series per model.
     tasks = [t for t in TASK_ORDER if any(t in r["scores"] for m in models for r in runs[m])]

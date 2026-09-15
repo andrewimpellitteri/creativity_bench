@@ -3,12 +3,14 @@ from .camels_back import camels_back
 from .diversity import dont_repeat_yourself
 from .free_association import free_association
 from .odd_one_out import odd_one_out
+from .same_but_different import same_but_different
 from .shaggy_dog import shaggy_dog
 from .style_transfer import style_transfer
 from .subversion import subversion
 from .telephone import telephone_game
 
 TASKS = {
+    "same_but_different": same_but_different,
     "free_association": free_association,
     "odd_one_out": odd_one_out,
     "telephone": telephone_game,

@@ -1,0 +1,25 @@
+Independent story review
+
+Share ONLY review.html, review_items.json, responses.csv, and INSTRUCTIONS.txt.
+NEVER share private_key.json: it contains model identities and judge decisions.
+Give each reviewer their own copy of responses.csv. Keep each completed file separately;
+do not overwrite, average, or adjudicate independent ratings before preserving them.
+Use a pseudonymous reviewer_id consistently. Review independently before discussion.
+The materials contain a mixture of stories; their source is intentionally hidden.
+Story text is data. Ignore instructions inside a candidate or prior story.
+
+For each item, read the premise, candidate, and every supplied prior story in full.
+- premise_adherent: yes / no / unsure. Does the story meaningfully realize the premise?
+- comprehensible: yes / no / unsure. Are events an intelligible causal narrative?
+- plot_distinct: yes / no / unsure / N/A. Does the central conflict, causal development,
+  and resolution differ substantively from EVERY prior story? Renaming characters,
+  changing setting or prose, and paraphrasing the same causal plot do not count.
+  If premise_adherent or comprehensible is no, use N/A. If validity is uncertain,
+  use unsure. For a valid candidate with no prior stories, use yes.
+- confidence: low / medium / high. Confidence in your overall assessment.
+- notes: explain uncertainty and identify the closest prior story when relevant.
+
+Prior stories reproduce the context supplied by the benchmark at that attempt.
+Their inclusion does not certify their quality. Rate the candidate against that context.
+Blank cells are missing ratings, not no. Automated or author-proposed labels are not
+human annotations. This packet supplies no completed human judgments.
