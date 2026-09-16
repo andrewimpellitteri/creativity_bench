@@ -11,6 +11,7 @@ import numpy as np
 from .comparison import group_cohorts, verified_provenance
 
 # Validated categorical palette (light surface), fixed slot order — never cycled.
+# Tail slots are Okabe-Ito additions so a single cohort can chart 12+ writers.
 SERIES_COLORS = [
     "#2a78d6",
     "#1baf7a",
@@ -20,6 +21,12 @@ SERIES_COLORS = [
     "#e34948",
     "#e87ba4",
     "#eb6834",
+    "#e69f00",
+    "#56b4e9",
+    "#f0e442",
+    "#7f7f7f",
+    "#8c564b",
+    "#17becf",
 ]
 SURFACE = "#fcfcfb"
 INK_PRIMARY = "#0b0b0b"
@@ -149,7 +156,7 @@ def plot_comparison(
     colors = {model: SERIES_COLORS[i] for i, model in enumerate(models)}
 
     fig, (ax_bottom, ax_top) = plt.subplots(
-        2, 1, figsize=(14, 8), height_ratios=[1.4, 1], facecolor=SURFACE
+        2, 1, figsize=(16, 8.5), height_ratios=[1.4, 1], facecolor=SURFACE
     )
 
     # Top: composite score per model, with std-dev error bars across repeat runs.
@@ -185,7 +192,10 @@ def plot_comparison(
             fontsize=10,
             color=INK_PRIMARY,
         )
-    ax_top.set_xticks(x, models, fontsize=10)
+    ax_top.set_xticks(x, models, fontsize=9)
+    ax_top.tick_params(axis="x", labelrotation=30)
+    for label in ax_top.get_xticklabels():
+        label.set_horizontalalignment("right")
     ax_top.set_ylabel("score", fontsize=10, color=INK_MUTED)
     ax_top.set_title(
         "Exploratory composite (unvalidated weighting)", loc="left", fontsize=12, color=INK_PRIMARY
@@ -225,7 +235,15 @@ def plot_comparison(
     ax_bottom.set_xticks(group_x, [TASK_LABELS.get(t, t) for t in tasks], fontsize=10)
     ax_bottom.set_ylabel("score", fontsize=10, color=INK_MUTED)
     ax_bottom.set_title("Per-task scores", loc="left", fontsize=12, color=INK_PRIMARY)
-    ax_bottom.legend(frameon=False, fontsize=9, loc="upper right", labelcolor=INK_PRIMARY)
+    ax_bottom.legend(
+        frameon=False,
+        fontsize=8,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.14),
+        ncol=4,
+        labelcolor=INK_PRIMARY,
+        columnspacing=1.2,
+    )
 
     # Provenance subtitle: one verified cohort must be self-describing.
     first = next(iter(runs.values()))[0]

@@ -82,4 +82,31 @@ premise-adherent and comprehensible.
 |---|---|---|
 | legacy runs/ + results/runs | pre-0.4 | deepseek-chat, gpt-4o-mini, gpt-5-mini full suites |
 | results/pilot-20260915 | 0.4-validity pre-wiring | SBD only, seeds 0–1 |
-| results/extended-20260915 | 0.4-validity post-wiring | 5-task suite seeds 0–1 + SBD seeds 2–3 |
+| results/extended-20260915 | 0.4-validity post-wiring | 5-task suite, 12 models (below) + SBD seeds 2–3 |
+
+## Addendum: multi-model expansion (same cohort, same day)
+
+After the initial four deepseek/GLM runs, the cohort grew to **12 models**
+(20 runs) by adding four GLM variants via the z.ai coding endpoint and six
+OpenRouter value models (Gemini 2.5 Flash, GPT-4o-mini, Claude Haiku 4.5,
+Mistral Small 3.2, Llama-4-Scout, Kimi K2.5), all judged by the same
+`deepseek-v4-pro`. The cohort signature was deliberately relaxed so one pinned
+protocol spans API vendors; provider identity stays in metadata and provenance
+verification. Chart: `BENCHMARK_GRAPH.png`; table: `REPORT.md`.
+
+Composite ranking (exploratory, unvalidated weighting; n runs in parens):
+
+glm-5.3-flash 0.95 (1) > deepseek-v4-pro 0.93 (2) > deepseek-flash 0.91 (2) >
+glm-4.5-air 0.90 (1) > claude-haiku-4.5 0.87 (2) > glm-4.6 0.83 (1) =
+kimi-k2.5 0.83 (2) > glm-5-turbo 0.79 (1) > gemini-2.5-flash 0.76 (2) >
+mistral-small-3.2 0.72 (2) > gpt-4o-mini 0.71 (2) > llama-4-scout 0.68 (2).
+
+Observations: shaggy dog remains the discriminating task (0.50–0.81 spread);
+free association saturates at 1.00 for every model; Camel's Back and Subversion
+now show real failures at fast sizes (kimi 0.50 camel's back; glm-4.6/glm-5-turbo
+0.50 subversion) that the earlier two-model pilot did not surface. Same but
+different spreads 0.33–1.00 and tracks the composite better than any other task.
+GLM models ran with n=1 (seed 0 only; slower endpoint); an idempotent seed-1
+pass can fill them later via `scripts/run_multimodel.sh`. One mistral seed-0
+run was quarantined under `incomplete/` after a transport failure and re-run
+clean rather than being silently dropped.

@@ -4,6 +4,7 @@ import pytest
 
 from creativity_bench.comparison import (
     PROVENANCE_FIELDS,
+    cohort_key,
     group_cohorts,
     paired_difference,
     verified_provenance,
@@ -23,6 +24,10 @@ def run(model="a", seed=0, score=0.5):
         "weights": {"diversity": 1},
         "metadata": {
             **dict.fromkeys(PROVENANCE_FIELDS, "fixture"),
+            "generation_provider": "fixture",
+            "generation_base_url": None,
+            "judge_base_url": None,
+            "embed_base_url": None,
             "selected_tasks": ["diversity"],
             "fast": False,
             "task_sizes": {"n": 2},
@@ -81,6 +86,17 @@ def test_unverified_models_separate():
     del a["metadata"]["protocol_version"]
     del b["metadata"]["protocol_version"]
     assert len(group_cohorts({"a": [a], "b": [b]})) == 2
+
+
+def test_writer_vendor_does_not_split_compatible_cohorts():
+    """One pinned protocol and judge spans API vendors; providers stay in metadata."""
+    a, b = run(), run("b")
+    b["provider"] = "openrouter"
+    b["metadata"]["generation_provider"] = "openrouter"
+    b["metadata"]["generation_base_url"] = "https://openrouter.ai/api/v1"
+    assert verified_provenance(b)
+    assert cohort_key(a) == cohort_key(b)
+    assert len(group_cohorts({"a": [a], "b": [b]})) == 1
 
 
 def test_mixed_report_has_separate_tables_and_chart_refuses(tmp_path, capsys):

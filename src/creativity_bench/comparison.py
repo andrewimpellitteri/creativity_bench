@@ -19,10 +19,10 @@ PROVENANCE_FIELDS = (
     "generation_settings",
     "judge_settings",
     "protocol_fingerprint",
-    "judge_base_url",
-    "embed_base_url",
-    "generation_provider",
-    "generation_base_url",
+    # Writer provider identity is deliberately excluded from the cohort
+    # signature: comparing models across API vendors under one pinned protocol
+    # and judge is the benchmark's purpose. Providers stay recorded in run
+    # metadata, in verified_provenance, and in chart/report labels.
 )
 
 
@@ -56,9 +56,12 @@ def verified_provenance(run: dict) -> bool:
         "judge_provider",
         "generation_provider",
     )
-    if any(not isinstance(metadata[f], str) or not metadata[f].strip() for f in required_names):
+    if any(
+        not isinstance(metadata.get(f), str) or not metadata.get(f, "").strip()
+        for f in required_names
+    ):
         return False
-    if metadata["generation_provider"] != run.get("provider"):
+    if metadata.get("generation_provider") != run.get("provider"):
         return False
     if any(
         not isinstance(metadata[f], dict) or not metadata[f]
@@ -81,10 +84,10 @@ def verified_provenance(run: dict) -> bool:
     ):
         return False
     for role in ("generation", "judge", "embed"):
-        endpoint = metadata[f"{role}_base_url"]
+        endpoint = metadata.get(f"{role}_base_url")
         if endpoint is not None and (not isinstance(endpoint, str) or not endpoint.strip()):
             return False
-        if metadata[f"{role}_provider"] == "custom" and endpoint is None:
+        if metadata.get(f"{role}_provider") == "custom" and endpoint is None:
             return False
     weights = run.get("weights")
     return (
