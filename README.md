@@ -130,6 +130,37 @@ The validation command makes real judge API calls.
   creative achievement are different quantities. Several legacy tasks remain
   exploratory (see the task audit).
 
+### Running the multi-model cohort
+
+`scripts/run_multimodel.sh` runs the five non-embedding tasks at fast sizes for
+the 12-model roster (DeepSeek, z.ai GLM variants, OpenRouter value models) on
+paired seeds 0–1, with the judge fixed to the validated `deepseek-v4-pro` for
+every writer. It sources `.env` and is idempotent: any (model, seed) pair
+already saved in the runs directory is skipped, so re-running fills in missing
+seeds without duplicating work. OpenRouter models are skipped unless
+`OPENROUTER_API_KEY` is set.
+
+```bash
+scripts/run_multimodel.sh
+uv run creativity-bench report --runs-dir results/extended-20260915/suite_runs \
+    --out results/extended-20260915/REPORT.md \
+    --chart results/extended-20260915/BENCHMARK_GRAPH.png
+```
+
+The cohort lives in [`results/extended-20260915/`](results/extended-20260915/):
+`PROTOCOL.md` pre-registers the run, `FINDINGS.md` and `REPORT.md` summarize it,
+and `BENCHMARK_GRAPH.png` charts the single verified cohort (a same-basename
+`.svg` vector copy is written alongside every PNG for publications). Incomplete
+runs are quarantined into `results/*/incomplete/` instead of deleted, so their
+audit data survives while comparative reports exclude them.
+
+Two gates apply before any pilot: `validate-judge` must resolve and correctly
+label all nine development controls (a failure or unresolved verdict blocks the
+run), and the blinded review packet from
+`scripts/export_human_review.py` — a shuffled, leak-scanned export where story
+identities stay in a `private_key.json` that must never be shared — awaits
+independent human labels.
+
 ## Results
 
 Development results from this repo's own pilots — a demonstration of the
