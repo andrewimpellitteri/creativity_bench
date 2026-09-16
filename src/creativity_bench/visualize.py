@@ -296,3 +296,168 @@ def plot_comparison(
     if show:
         plt.show()
     return 0
+
+
+def acceptance_curves(runs: dict[str, list[dict]]) -> dict[str, list[list[int]]]:
+    """Per-model cumulative acceptance curves from saved Same But Different runs.
+
+    One curve per premise per run: ``curve[i]`` is how many distinct plots had
+    been accepted after ``i + 1`` scheduled attempts. Runs without the task, or
+    with ragged curves, are skipped rather than padded — a padded curve would
+    invent acceptances that never happened.
+    """
+    curves: dict[str, list[list[int]]] = {}
+    for model, payloads in runs.items():
+        for payload in payloads:
+            task = (payload.get("tasks") or {}).get("same_but_different")
+            if not isinstance(task, dict):
+                continue
+            attempts = (task.get("details") or {}).get("attempts_per_premise")
+            for premise in (task.get("details") or {}).get("premises") or []:
+                curve = premise.get("acceptance_curve")
+                if not isinstance(curve, list) or not curve or len(curve) != attempts:
+                    continue
+                if any(type(value) is not int for value in curve):
+                    continue
+                curves.setdefault(model, []).append(curve)
+    return curves
+
+
+def plot_acceptance_curves(
+    runs_dir: str | Path = "runs",
+    out_path: str | Path = "acceptance_curves.png",
+    show: bool = False,
+) -> int:
+    """Chart cumulative accepted plots against scheduled attempts.
+
+    This is the figure that shows whether a budget was large enough: a curve
+    that keeps climbing at the last attempt means the benchmark measured its own
+    budget, not the model's supply of distinct plots. One faint line per premise
+    keeps the spread visible; the bold line is the model's mean.
+    """
+    import matplotlib.pyplot as plt
+
+    runs = load_runs(runs_dir)
+    if not runs:
+        print(f"No usable run files in {runs_dir}/. Run `creativity-bench run` first.")
+        return 1
+    if len(group_cohorts(runs)) != 1 or not all(
+        verified_provenance(r) for rs in runs.values() for r in rs
+    ):
+        print(
+            "Cannot chart mixed or unverified protocol cohorts. Generate a report to inspect "
+            "cohorts, then copy one verified cohort into a separate runs directory."
+        )
+        return 1
+    curves = acceptance_curves(runs)
+    if not curves:
+        print(f"No Same But Different acceptance curves in {runs_dir}/.")
+        return 1
+
+    models = sorted(curves)
+    colors = {model: SERIES_COLORS[i % len(SERIES_COLORS)] for i, model in enumerate(models)}
+    budget = max(len(curve) for series in curves.values() for curve in series)
+    attempts = np.arange(1, budget + 1)
+
+    fig, ax = plt.subplots(figsize=(11, 6.2), facecolor=SURFACE)
+
+    # Reference: every scheduled attempt accepted. The gap to it is the failure.
+    ax.plot(
+        attempts,
+        attempts,
+        color=INK_MUTED,
+        linewidth=1.2,
+        linestyle=(0, (5, 4)),
+        alpha=0.7,
+        zorder=2,
+    )
+    ax.annotate(
+        "every attempt accepted",
+        xy=(budget, budget),
+        xytext=(-6, 6),
+        textcoords="offset points",
+        ha="right",
+        fontsize=9,
+        color=INK_MUTED,
+    )
+
+    for model in models:
+        series = [curve for curve in curves[model] if len(curve) == budget]
+        if not series:
+            continue
+        for curve in series:
+            ax.plot(attempts, curve, color=colors[model], linewidth=1.1, alpha=0.45, zorder=3)
+        mean = np.mean(series, axis=0)
+        # 2px mean line over a surface ring, so crossing means stay legible.
+        ax.plot(attempts, mean, color=SURFACE, linewidth=4.5, zorder=4)
+        ax.plot(attempts, mean, color=colors[model], linewidth=2, zorder=5)
+        ax.scatter([attempts[-1]], [mean[-1]], s=40, color=colors[model], zorder=6)
+        # Direct label in ink, not the series color: the mark carries identity.
+        ax.annotate(
+            f"{model}  {mean[-1]:.1f}/{budget}",
+            xy=(budget, mean[-1]),
+            xytext=(8, 0),
+            textcoords="offset points",
+            va="center",
+            fontsize=10,
+            color=INK_PRIMARY,
+        )
+
+    ax.set_title(
+        "Same But Different: cumulative distinct plots accepted",
+        fontsize=13,
+        color=INK_PRIMARY,
+        loc="left",
+        pad=30,
+    )
+    first = next(iter(runs.values()))[0]
+    meta = first.get("metadata") or {}
+    premise_count = sum(len(series) for series in curves.values())
+    # Provenance sits between title and plot so the chart is self-describing.
+    ax.text(
+        0,
+        1.02,
+        f"{meta.get('protocol_version') or 'unknown protocol'} · "
+        f"{'fast' if meta.get('fast') else 'full'} budget · "
+        f"judge: {meta.get('judge_model') or 'model-as-judge'} · "
+        f"{premise_count} premise curves · faint lines are single premises",
+        transform=ax.transAxes,
+        fontsize=8.5,
+        color=INK_MUTED,
+        va="bottom",
+    )
+    ax.set_xlabel("scheduled attempt", fontsize=10, color=INK_MUTED)
+    ax.set_ylabel("accepted distinct plots", fontsize=10, color=INK_MUTED)
+    ax.set_xlim(1, budget + 0.02 * budget)
+    ax.set_ylim(0, budget + 0.5)
+    ax.set_xticks(attempts)
+    ax.set_facecolor(SURFACE)
+    ax.set_axisbelow(True)
+    ax.grid(True, axis="y", color=GRIDLINE, linewidth=0.8)
+    for side in ("top", "right", "left"):
+        ax.spines[side].set_visible(False)
+    ax.spines["bottom"].set_color(BASELINE)
+    ax.tick_params(colors=INK_MUTED, length=0)
+    handles = [
+        plt.Line2D([], [], color=colors[model], linewidth=2, label=model) for model in models
+    ]
+    ax.legend(
+        handles=handles,
+        frameon=False,
+        loc="upper left",
+        fontsize=9.5,
+        labelcolor=INK_PRIMARY,
+    )
+
+    fig.tight_layout()
+    fig.subplots_adjust(right=0.78)
+    fig.savefig(out_path, dpi=200, facecolor=SURFACE, bbox_inches="tight")
+    print(f"Wrote {out_path} ({len(models)} models, {premise_count} curves)")
+    out = Path(out_path)
+    if out.suffix.lower() == ".png":
+        svg_path = out.with_suffix(".svg")
+        fig.savefig(svg_path, facecolor=SURFACE, bbox_inches="tight")
+        print(f"Wrote {svg_path} (vector copy)")
+    if show:
+        plt.show()
+    return 0

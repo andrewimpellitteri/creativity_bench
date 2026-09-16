@@ -6,7 +6,12 @@ import json
 
 import pytest
 
-from creativity_bench.visualize import plot_comparison
+from creativity_bench.visualize import (
+    acceptance_curves,
+    load_runs,
+    plot_acceptance_curves,
+    plot_comparison,
+)
 
 
 @pytest.fixture(scope="session")
@@ -77,3 +82,61 @@ def test_non_png_output_keeps_single_file(tmp_path, capsys, agg, fixture_runs):
     assert sorted(p.name for p in tmp_path.glob("chart*")) == ["chart.svg"]
     printed = capsys.readouterr().out
     assert f"Wrote {out}" in printed
+
+
+def curve_payload(model="a", curves=((1, 2, 3),), attempts=3):
+    payload = run_payload(model)
+    payload["tasks"] = {
+        "same_but_different": {
+            "name": "same_but_different",
+            "score": 0.5,
+            "metrics": {},
+            "details": {
+                "attempts_per_premise": attempts,
+                "premises": [
+                    {"premise": f"p{i}", "acceptance_curve": list(curve)}
+                    for i, curve in enumerate(curves)
+                ],
+            },
+        }
+    }
+    return payload
+
+
+def test_acceptance_curves_collects_one_curve_per_premise(tmp_path):
+    runs_dir = tmp_path / "runs"
+    runs_dir.mkdir()
+    (runs_dir / "a.json").write_text(json.dumps(curve_payload(curves=((1, 2, 3), (0, 1, 2)))))
+    (runs_dir / "b.json").write_text(json.dumps(curve_payload("b", curves=((1, 1, 1),))))
+    curves = acceptance_curves(load_runs(runs_dir))
+    assert curves == {"a": [[1, 2, 3], [0, 1, 2]], "b": [[1, 1, 1]]}
+
+
+def test_acceptance_curves_skip_ragged_and_missing_data(tmp_path):
+    """A curve shorter than the budget would invent acceptances if padded."""
+    runs_dir = tmp_path / "runs"
+    runs_dir.mkdir()
+    (runs_dir / "ragged.json").write_text(
+        json.dumps(curve_payload(curves=((1, 2), (1, 2, 3)), attempts=3))
+    )
+    (runs_dir / "no_task.json").write_text(json.dumps(run_payload("b")))
+    assert acceptance_curves(load_runs(runs_dir)) == {"a": [[1, 2, 3]]}
+
+
+def test_acceptance_curve_chart_writes_png_and_svg(tmp_path, capsys, agg):
+    runs_dir = tmp_path / "runs"
+    runs_dir.mkdir()
+    (runs_dir / "a.json").write_text(json.dumps(curve_payload(curves=((1, 2, 3), (0, 1, 2)))))
+    out = tmp_path / "curves.png"
+    assert plot_acceptance_curves(runs_dir, out) == 0
+    assert out.read_bytes().startswith(b"\x89PNG")
+    assert "<svg" in (tmp_path / "curves.svg").read_text()
+    assert "2 curves" in capsys.readouterr().out
+
+
+def test_acceptance_curve_chart_reports_when_there_is_nothing_to_plot(tmp_path, capsys, agg):
+    runs_dir = tmp_path / "runs"
+    runs_dir.mkdir()
+    (runs_dir / "a.json").write_text(json.dumps(run_payload()))
+    assert plot_acceptance_curves(runs_dir, tmp_path / "curves.png") == 1
+    assert "No Same But Different acceptance curves" in capsys.readouterr().out

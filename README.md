@@ -9,12 +9,27 @@ An evaluation suite for measuring the creative capabilities of large language mo
 
 Works with any OpenAI-compatible API: OpenAI, DeepSeek, z.ai (GLM), OpenRouter, or a custom endpoint.
 
+![Per-task scores and exploratory composite for twelve models on five tasks](results/extended-20260915/BENCHMARK_GRAPH.png)
+
+<sub>Twelve models, five non-embedding tasks, fast budgets, one pinned judge
+(`deepseek-v4-pro`), protocol `0.4-validity`. **Read the flat rows first:** free
+association, Camel's back and much of Subversion sit at 1.00 for nearly every
+model. That is the budget saturating, not twelve models tying — a result about
+this cohort's sizes, not about creativity. Only Same But Different and Shaggy
+Dog separate models here. Full cohort in
+[`results/extended-20260915/`](results/extended-20260915/).</sub>
+
 ## Benchmark status
 
 This is an exploratory suite, not a validated measure of general creativity.
 See [the design audit and implementation roadmap](BENCHMARK_DESIGN.md) for scoring
 failure modes, proposed controls, and the next experiment, and
-[the workboard](WORKBOARD.md) for what is open right now and in what order. Compare task profiles
+[the workboard](WORKBOARD.md) for what is open right now and in what order.
+
+The four tasks added in `0.5-coverage` have **not been run against a real model
+yet**, and a review of their landing commit found scoring defects that offline
+tests passed straight over — see [WORKBOARD P0.0](WORKBOARD.md). Treat their
+numbers as unproven until that block is closed and a pilot has run. Compare task profiles
 and inspect outputs before interpreting the composite.
 
 ## The tasks
@@ -28,21 +43,42 @@ score; per-task numbers stay methodologically comparable across the two, but
 composites do not, because the roster they average over changed. Earlier
 protocols changed scoring itself and are not comparable at all.
 
-| Task | What it measures | Score |
-|------|------------------|-------|
-| **Same But Different** | Sustained plot diversity under a fixed premise | Accepted distinct, valid stories / scheduled attempts; full acceptance curves and judgments saved |
-| **Free association** | Spontaneous association with full word history | Fraction of budget before first repetition or invalid response; raw vocabulary diagnostics retained |
-| **Telephone game** | Creative drift: expand a summary into a story, re-summarize, repeat | Fraction of iterations before successive stories converge |
-| **Camel's back** | Coherence under stacked edits: apply 1–3 random edits per round, an LLM judge verifies coherence | Fraction of edit rounds survived |
-| **Diversity (DRY)** | Variation across repeated identical prompts | Within-prompt mean cosine distance / 2; between-prompt distance and effective rank are diagnostics |
-| **Style transfer** | Genre transformation: summarize a story, rewrite it in a different genre | Cosine distance / 2, gated on plot preservation, target genre and comprehensibility |
-| **This & that** | Blending two unlike examples into one story that is like both | Angular interpolation excess against an unrelated baseline story, gated on a judge confirming the story draws on both examples |
-| **This & that—but not like that** | Negation: follow a good example while ending up further from a designated bad example than the good one already is | Share of the pair's remaining angular headroom away from the bad example, gated on a judge confirming the story still draws on the good example and is comprehensible |
-| **Copycat** (LLM-uta) | Holding a borrowed voice instead of collapsing to a house style | Chance-corrected accuracy of a blinded judge matching each continuation back to its opening |
-| **Quilting** | Recipe variety: pick fragments from a shuffled pile, then use them | Validity-gated mean of distinct-subset rate and story embedding diversity across runs |
-| **Odd one out** | Anti-anchoring: given themed example items, name the most different item that still belongs to the category | Mean per-list minimum embedding distance to the examples (cosine [0, 2] halved into [0, 1]); the runner requires membership judgments; non-members earn zero and unresolved judgments mark the run incomplete |
-| **Subversion** | Negation: write "the opposite" of a generated story; a judge classifies every story/subversion pair as opposite or not | Within-pair hit rate minus cross-pair false-positive rate (Youden's J) |
-| **Shaggy dog** | Non-moralizing: write a deliberately pointless story, judges then name its moral | Inverted judge agreement (divergent morals score high; stated moral fails outright) |
+Thirteen tasks, grouped as Gwern's post groups them. **Needs** says what each
+one calls beyond the model under test: **J** a pinned judge model, **E** an
+embedding model.
+
+### Iteration — how long can it keep going?
+
+| Task | What it measures | Score | Needs |
+|------|------------------|-------|:-----:|
+| **Same But Different** | Sustained plot diversity under a fixed premise | Accepted distinct, valid stories / scheduled attempts; full acceptance curves and judgments saved | J |
+| **Free association** | Spontaneous association with full word history | Fraction of budget before first repetition or invalid response; raw vocabulary diagnostics retained | — |
+| **Telephone game** | Creative drift: expand a summary into a story, re-summarize, repeat | Fraction of iterations before successive stories converge | E |
+| **Camel's back** | Coherence under stacked edits: 1–3 random edits per round, judged for coherence | Fraction of edit rounds survived | J |
+| **Diversity (DRY)** | Variation across repeated identical prompts | Within-prompt mean cosine distance / 2; between-prompt distance and effective rank are diagnostics | E |
+
+### Style flexibility — can it work in a voice not its own?
+
+| Task | What it measures | Score | Needs |
+|------|------------------|-------|:-----:|
+| **Style transfer** | Genre transformation: summarize a story, rewrite it in a different genre | Cosine distance / 2, gated on plot preservation, target genre and comprehensibility | J + E |
+| **This & that** | Blending two unlike examples into one story that is like both | Angular interpolation excess against an unrelated baseline story, gated on a judge confirming the story draws on both examples | J + E |
+| **Copycat** (LLM-uta) | Holding a borrowed voice instead of collapsing to a house style | Chance-corrected accuracy of a blinded judge matching each continuation back to its opening | J |
+
+### Difference & negation — can it move away from something on purpose?
+
+| Task | What it measures | Score | Needs |
+|------|------------------|-------|:-----:|
+| **Odd one out** | Anti-anchoring: name the item most different from themed examples that still belongs to the category | Mean per-list minimum embedding distance to the examples (cosine [0, 2] halved into [0, 1]); membership judgments are required, non-members earn zero, unresolved judgments mark the run incomplete | J + E |
+| **This & that—but not like that** | Follow a good example while ending up further from a designated bad example than the good one already is | Share of the pair's remaining angular headroom away from the bad example, gated on a judge confirming the story still draws on the good example | J + E |
+| **Subversion** | Write "the opposite" of a generated story; a judge classifies every story/subversion pair as opposite or not | Within-pair hit rate minus cross-pair false-positive rate (Youden's J) | J |
+| **Shaggy dog** | Write a deliberately pointless story; judges then name its moral | Inverted judge agreement (divergent morals score high; a stated moral fails outright) | J |
+
+### Creative constraints
+
+| Task | What it measures | Score | Needs |
+|------|------------------|-------|:-----:|
+| **Quilting** | Recipe variety: pick fragments from a shuffled pile, then actually use them | Validity-gated mean of distinct-subset rate and story embedding diversity across runs | J + E |
 
 ## Setup
 
@@ -202,6 +238,31 @@ surface details. Stories, verdicts and per-premise acceptance curves are in
 [`results/pilot-20260915/`](results/pilot-20260915/leaderboard.md), with an
 inspectable gallery per run
 ([example](results/pilot-20260915/gallery/deepseek-v4-pro_20260915-161839_a4a04a.html)).
+
+### Does ten attempts exhaust a model? Not yet (protocol `0.4-validity`)
+
+Full-budget Same But Different — six premises × ten scheduled attempts, seed 0,
+judge `deepseek-v4-pro`, judge gate passed 9/9 before any spend.
+
+![Cumulative accepted plots against scheduled attempts for two models](results/saturation-20260915/ACCEPTANCE_CURVES.png)
+
+Every curve is still climbing at attempt 10, at close to its attempt-1 slope:
+`deepseek-flash` accepted 55/60 and `deepseek-v4-pro` 51/60, with two of flash's
+premises going 10-for-10. **The fixed budget, not the models, was the binding
+constraint** — so the near-ceiling scores in the fast cohort above measure a
+three-attempt cap. A pilot that intends to observe saturation needs a larger
+budget (20+) or a harder distinctness bar. `v4-pro`'s rejections cluster on
+`plot_distinct` in later attempts, which is the intended failure mode becoming
+visible. One seed, one provider family, and the judge shares a family with the
+`v4-pro` arm; details and limitations in
+[`SATURATION_FINDINGS.md`](results/saturation-20260915/SATURATION_FINDINGS.md).
+
+Regenerate this figure from saved transcripts at no API cost:
+
+```bash
+uv run scripts/plot_acceptance_curves.py results/saturation-20260915/runs \
+    results/saturation-20260915/ACCEPTANCE_CURVES.png
+```
 
 ### Legacy 8-task profiles (pre-protocol audit)
 
