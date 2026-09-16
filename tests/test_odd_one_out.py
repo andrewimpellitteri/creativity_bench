@@ -8,6 +8,11 @@ from creativity_bench.tasks import odd_one_out
 from creativity_bench.tasks.odd_one_out import SEED_LISTS
 
 REJECT_VERDICT = 'Sure! Here is my answer: {"qualifies": false}'
+ACCEPT_VERDICT = '{"qualifies": true}'
+
+
+def accepting_judge():
+    return FakeClient(lambda _: ACCEPT_VERDICT)
 
 
 def fixed_embedder(candidate_vector):
@@ -43,13 +48,14 @@ def test_odd_one_out_score_bounds():
     result = odd_one_out(
         FakeClient(responder),
         embedder=FakeEmbedder(),
+        judge_client=accepting_judge(),
         n_lists=2,
         rng=random.Random(0),
     )
     assert 0.0 <= result.score <= 1.0
     assert result.metrics["n_lists"] == 2
     assert len(result.details["lists"]) == 2
-    assert result.metrics["judge_used"] is False
+    assert result.metrics["judge_used"] is True
 
 
 def test_odd_one_out_maximally_distant_item_scores_high():
@@ -59,7 +65,7 @@ def test_odd_one_out_maximally_distant_item_scores_high():
     result = odd_one_out(
         client,
         embedder=fixed_embedder([-1.0, 0.0]),
-        judge_client=FakeClient(lambda _: '{"qualifies": true}'),
+        judge_client=accepting_judge(),
         lists=lists,
         rng=random.Random(0),
     )
@@ -74,6 +80,7 @@ def test_odd_one_out_item_identical_to_example_scores_low():
     result = odd_one_out(
         client,
         embedder=FakeEmbedder(),
+        judge_client=accepting_judge(),
         lists=lists,
         rng=random.Random(0),
     )
@@ -93,6 +100,7 @@ def test_odd_one_out_min_not_mean_distance_scores():
     result = odd_one_out(
         FakeClient(lambda _: "novel item"),
         embedder=FakeEmbedder(fixed=fixed),
+        judge_client=accepting_judge(),
         lists=lists,
         rng=random.Random(0),
     )
@@ -103,7 +111,12 @@ def test_odd_one_out_min_not_mean_distance_scores():
 
 def test_odd_one_out_requires_a_list():
     with pytest.raises(ValueError):
-        odd_one_out(FakeClient(lambda _: "x"), embedder=FakeEmbedder(), n_lists=0)
+        odd_one_out(
+            FakeClient(lambda _: "x"),
+            embedder=FakeEmbedder(),
+            judge_client=accepting_judge(),
+            n_lists=0,
+        )
 
 
 # --- judge gate --------------------------------------------------------------
@@ -159,12 +172,30 @@ def test_odd_one_out_nonboolean_judge_cannot_award_credit(raw):
     assert result.details["lists"][0]["judge_attempts"] == [raw, raw]
 
 
-def test_odd_one_out_unjudged_distance_is_only_diagnostic():
+def test_odd_one_out_without_a_judge_refuses_to_score():
+    # A missing gate is a configuration failure, not a model failure: it must
+    # not masquerade as a zero score, which was the previous behavior.
+    client = FakeClient(lambda _: "novel item")
+    with pytest.raises(ValueError, match="judge_client"):
+        odd_one_out(
+            client,
+            embedder=fixed_embedder([-1, 0]),
+            lists=[("trees", ["alpha", "beta"])],
+        )
+    assert client.usage.requests == 0  # fails before spending a generation call
+
+
+def test_odd_one_out_unresolved_judgment_scores_zero_and_marks_incomplete():
+    # Fail-closed handling of unresolved judgments is unchanged: zero score AND
+    # a judge_unresolved count, which the runner reads as an incomplete run.
     result = odd_one_out(
         FakeClient(lambda _: "novel item"),
         embedder=fixed_embedder([-1, 0]),
-        lists=[("trees", ["alpha", "beta"])],
+        judge_client=FakeClient(lambda _: "no verdict here"),
+        lists=[("trees", ["alpha", "beta"]), ("dog breeds", ["alpha", "beta"])],
     )
     assert result.score == 0
     assert result.metrics["mean_min_distance"] == pytest.approx(2)
-    assert result.metrics["judge_unresolved"] == 1
+    assert result.metrics["judge_unresolved"] == 2
+    assert result.metrics["validity_rate"] == 0
+    assert [r["validity_status"] for r in result.details["lists"]] == ["unresolved"] * 2

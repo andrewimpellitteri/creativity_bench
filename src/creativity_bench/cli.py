@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 
 from .client import (
@@ -61,6 +62,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=f"Comma-separated subset of tasks to run. Available: {', '.join(TASKS)}",
     )
+    run.add_argument(
+        "--weights",
+        default=None,
+        help="Composite weights as task=value,task=value (non-negative floats; default: "
+        "equal weights). Tasks left out get no weight. The weights are saved with the run "
+        "and are part of its cohort signature, so custom weightings are never pooled with "
+        "default-weighted runs.",
+    )
     run.add_argument("--n", type=int, default=1, help="Number of benchmark repetitions")
     run.add_argument(
         "--seed", type=int, default=None, help="Random seed (per-run seeds derive from it)"
@@ -108,8 +117,51 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def parse_weights(spec: str) -> dict[str, float]:
+    """Parse `task=value,task=value` into a weight map, validating every entry.
+
+    A malformed weight map is a configuration error and must fail loudly: a
+    silently-dropped or mistyped task name would change the composite without
+    changing anything visible in the saved run.
+    """
+    weights: dict[str, float] = {}
+    for entry in spec.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        name, separator, raw = entry.partition("=")
+        name, raw = name.strip(), raw.strip()
+        if not separator or not name or not raw:
+            raise ValueError(f"Malformed --weights entry {entry!r}; expected task=value")
+        if name not in TASKS:
+            raise ValueError(f"Unknown task in --weights: {name}. Available: {', '.join(TASKS)}")
+        if name in weights:
+            raise ValueError(f"Duplicate task in --weights: {name}")
+        try:
+            value = float(raw)
+        except ValueError:
+            raise ValueError(f"--weights value for {name} is not a number: {raw!r}") from None
+        if not math.isfinite(value) or value < 0:
+            raise ValueError(f"--weights value for {name} must be a non-negative number: {raw!r}")
+        weights[name] = value
+    if not weights:
+        raise ValueError("--weights needs at least one task=value entry")
+    return weights
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     from .runner import print_results, run_benchmark, save_run
+
+    # Argument validation first: a bad invocation must fail before any client,
+    # key or endpoint is resolved, so it can never be read as a model result.
+    tasks = [t.strip() for t in args.tasks.split(",")] if args.tasks else None
+    if args.n < 1:
+        raise ValueError("--n must be positive")
+    weights = parse_weights(args.weights) if args.weights else None
+    if weights is not None and sum(weights.get(name, 0.0) for name in (tasks or TASKS)) <= 0:
+        # Otherwise the composite would be 0.0 for a configuration reason and
+        # read as a model result.
+        raise ValueError("--weights gives zero total weight to the selected tasks")
 
     provider = resolve_provider(args.provider, args.base_url)
     warn_if_paid_openrouter_model(provider, args.model)
@@ -127,15 +179,26 @@ def cmd_run(args: argparse.Namespace) -> int:
     else:
         judge_client = client
 
-    tasks = [t.strip() for t in args.tasks.split(",")] if args.tasks else None
-    if args.n < 1:
-        raise ValueError("--n must be positive")
-    needs_embeddings = {"telephone", "diversity", "style_transfer", "odd_one_out"}
+    # Keep in step with runner.run_benchmark's embedding_tasks set; a task
+    # missing here is unrunnable from the CLI ("Selected tasks require an
+    # embedder") even though its configuration is fine.
+    needs_embeddings = {
+        "telephone",
+        "diversity",
+        "style_transfer",
+        "odd_one_out",
+        "this_and_that",
+        "quilting",
+    }
     embedder = (
         Embedder(provider=resolve_provider(args.embed_provider), model=args.embed_model)
         if needs_embeddings.intersection(TASKS if tasks is None else tasks)
         else None
     )
+
+    if weights is not None:
+        echo = ", ".join(f"{name}={value:g}" for name, value in sorted(weights.items()))
+        print(f"Custom composite weights: {echo} (saved with the run; own cohort)")
 
     for i in range(args.n):
         if args.n > 1:
@@ -149,6 +212,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             seed=seed,
             fast=args.fast,
             verbose=args.verbose,
+            weights=weights,
         )
         print_results(result)
         if not args.no_save:

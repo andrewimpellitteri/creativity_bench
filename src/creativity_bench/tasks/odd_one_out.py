@@ -19,12 +19,16 @@ Implementation notes:
   different. Real embedding similarities rarely drop below 0, so scores
   concentrate in the upper half of the interval; comparisons are only valid
   within one fixed embedding space.
-- # NOTE(gwern): the spec's optional gate -- check "that the item still
-  qualifies as a member" with a judge, where "judge rejects -> that item
-  scores 0" -- is implemented via ``judge_client`` returning a JSON verdict
-  in the style of judge.py's EditVerdict parsing. Unparseable judge output
-  is unresolved and scores zero (fail-closed) and is recorded in the ``judge_unparseable``
-  metric rather than crashing the run.
+- # NOTE(gwern): the spec's gate -- check "that the item still qualifies as
+  a member" with a judge, where "judge rejects -> that item scores 0" -- is
+  implemented via ``judge_client`` returning a JSON verdict in the style of
+  judge.py's EditVerdict parsing. The gate is mandatory: without it every
+  answer would be credited on embedding distance alone, so a missing
+  ``judge_client`` raises ``ValueError`` rather than scoring the run (as in
+  this_and_that, copycat and quilting). Unparseable judge output is
+  unresolved and scores zero (fail-closed) and is recorded in the
+  ``judge_unparseable`` metric rather than crashing the run, and the
+  ``judge_unresolved`` count marks the evaluation incomplete.
 """
 
 from __future__ import annotations
@@ -172,6 +176,8 @@ def odd_one_out(
     verbose: bool = False,
     **_: object,
 ) -> TaskResult:
+    if judge_client is None:
+        raise ValueError("odd_one_out requires a judge_client for its membership gate")
     if n_lists < 1:
         raise ValueError("Need at least 1 seed list")
     rng = rng or random.Random()
@@ -197,15 +203,13 @@ def odd_one_out(
         # Linear normalization: cosine distance spans [0, 2], divide by 2.
         item_score = clamp01(min_distance / 2)
 
-        qualified, unparseable, judge_attempts = None, False, []
-        if judge_client is not None:
-            qualified, unparseable, judge_attempts = _judge_qualifies(
-                judge_client, theme, items, raw
-            )
+        qualified, unparseable, judge_attempts = _judge_qualifies(judge_client, theme, items, raw)
+        # Fail closed: rejected AND unresolved judgments score zero. Unresolved
+        # ones also raise judge_unresolved, which marks the run incomplete.
         if not qualified:
             item_score = 0.0
         if verbose:
-            status = "qualified" if qualified else "rejected"
+            status = {True: "qualified", False: "rejected", None: "unresolved"}[qualified]
             print(
                 f"  {theme}: {candidate!r} min_distance={min_distance:.3f} "
                 f"score={item_score:.3f} ({status})"
@@ -237,7 +241,7 @@ def odd_one_out(
             "mean_min_distance": float(np.mean([record["min_distance"] for record in records])),
             "mean_distance": float(np.mean([record["mean_distance"] for record in records])),
             "n_lists": len(records),
-            "judge_used": judge_client is not None,
+            "judge_used": True,  # required; kept for saved-run schema continuity
             "validity_rate": sum(record["qualified"] is True for record in records) / len(records),
             "judge_unresolved": sum(record["qualified"] is None for record in records),
             "judge_rejected": sum(record["qualified"] is False for record in records),

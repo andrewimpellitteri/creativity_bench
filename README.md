@@ -82,6 +82,12 @@ uv run creativity-bench run --provider zai-coding --model glm-4.6 \
 # Only some tasks
 uv run creativity-bench run --model gpt-5-mini --tasks diversity,style_transfer
 
+# Re-weight the composite (task=value, non-negative; omitted tasks get no weight).
+# The weights are saved with the run and are part of its cohort signature, so a
+# custom weighting is never pooled with default-weighted runs.
+uv run creativity-bench run --model gpt-5-mini \
+    --tasks diversity,style_transfer --weights diversity=2,style_transfer=1
+
 # Free OpenRouter models (e.g. stealth/ox-alpha) cost $0
 uv run creativity-bench run --provider openrouter --model stealth/ox-alpha --n 3 --seed 0
 
