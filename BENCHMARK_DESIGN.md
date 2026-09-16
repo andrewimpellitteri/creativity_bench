@@ -96,6 +96,10 @@ comparison groups. The report now separates these groups; charts require a singl
   claim that all underlying prompts are independent or newly sampled.
 - `gallery` exports inspectable HTML; `validate-judge` exercises the production
   Same But Different evaluator against controls and preserves raw verdicts.
+- The cohort signature spans API vendors under one pinned protocol and judge, so
+  a multi-model panel compares directly while writer providers stay in run
+  metadata and provenance verification. Chart output writes a same-basename SVG
+  vector copy next to every PNG for publication use.
 
 The new score is accepted stories / scheduled attempts. An unresolved judgment
 gets no credit, but also marks the run incomplete so an evaluator outage does not
