@@ -1,4 +1,9 @@
-"""Comparison chart for saved benchmark runs."""
+"""Comparison chart for saved benchmark runs.
+
+A PNG output also gets a same-basename SVG copy written next to it (a vector
+version for publications); both paths are printed. Other extensions keep the
+single-file behavior.
+"""
 
 from __future__ import annotations
 
@@ -275,6 +280,11 @@ def plot_comparison(
     fig.tight_layout()
     fig.savefig(out_path, dpi=200, facecolor=SURFACE, bbox_inches="tight")
     print(f"Wrote {out_path} ({len(models)} models, {sum(len(v) for v in runs.values())} runs)")
+    out = Path(out_path)
+    if out.suffix.lower() == ".png":
+        svg_path = out.with_suffix(".svg")
+        fig.savefig(svg_path, facecolor=SURFACE, bbox_inches="tight")
+        print(f"Wrote {svg_path} (vector copy)")
     if show:
         plt.show()
     return 0
