@@ -94,10 +94,21 @@ def _parse_match(text: str, count: int) -> dict:
     return {"opening": choice, "comprehensible": payload["comprehensible"]}
 
 
-def _match_continuation(
-    judge_client: LLMClient, openings: list[dict], continuation: str, rng: random.Random
-) -> tuple[dict | None, list[str], list[str]]:
-    """Ask the judge which opening a continuation belongs to; labels are shuffled."""
+def evaluate_match(
+    judge_client: LLMClient,
+    *,
+    openings: list[dict],
+    continuation: str,
+    rng: random.Random,
+) -> dict:
+    """Production matching-gate path, also usable by offline fixture calibration.
+
+    Asks the blinded judge which opening a continuation belongs to; the integer
+    labels are shuffled with ``rng`` so label position carries no information.
+    Returns ``{"verdict": {"chosen_id", "comprehensible"} | None, "judge_attempts":
+    [raw responses], "label_permutation": [opening ids in shown order], "status":
+    "ok" | "unresolved"}``. Judge transport errors are not caught here.
+    """
     order = list(range(len(openings)))
     rng.shuffle(order)
     listing = "\n\n".join(
@@ -113,15 +124,21 @@ def _match_continuation(
             parsed = _parse_match(response, len(openings))
         except (ValueError, KeyError, json.JSONDecodeError):
             continue
-        return (
-            {
+        return {
+            "verdict": {
                 "chosen_id": permutation[parsed["opening"] - 1],
                 "comprehensible": parsed["comprehensible"],
             },
-            attempts,
-            permutation,
-        )
-    return None, attempts, permutation
+            "judge_attempts": attempts,
+            "label_permutation": permutation,
+            "status": "ok",
+        }
+    return {
+        "verdict": None,
+        "judge_attempts": attempts,
+        "label_permutation": permutation,
+        "status": "unresolved",
+    }
 
 
 def copycat(
@@ -182,11 +199,12 @@ def copycat(
             records.append(record)
             continue
 
-        verdict, attempts, permutation = _match_continuation(
-            judge_client, selected, continuation, rng
+        evaluation = evaluate_match(
+            judge_client, openings=selected, continuation=continuation, rng=rng
         )
-        record["judge_attempts"] = attempts
-        record["label_permutation"] = permutation
+        verdict = evaluation["verdict"]
+        record["judge_attempts"] = evaluation["judge_attempts"]
+        record["label_permutation"] = evaluation["label_permutation"]
         if verdict is None:
             record["validity_status"] = "unresolved"
         elif not verdict["comprehensible"]:
