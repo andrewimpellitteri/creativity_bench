@@ -178,3 +178,31 @@ def test_custom_weights_change_the_composite(monkeypatch, tmp_path):
         (scores["free_association"] + scores["shaggy_dog"]) / 2
     )
     assert weighted[0]["composite"] != pytest.approx(equal[0]["composite"])
+
+
+def test_embedding_tasks_get_an_embedder(monkeypatch):
+    # runner.run_benchmark rejects this_and_that and quilting without an
+    # embedder, so the CLI must build one for them.
+    from conftest import FakeClient, FakeEmbedder
+
+    from creativity_bench import cli, runner
+
+    seen = {}
+
+    def make_client(*, provider, model, **kwargs):
+        client = FakeClient(lambda _: "word", model=model)
+        client.provider = provider
+        return client
+
+    def fake_run_benchmark(client, judge_client, embedder, **kwargs):
+        seen["embedder"] = embedder
+        raise SystemExit(0)
+
+    monkeypatch.setattr(cli, "LLMClient", make_client)
+    monkeypatch.setattr(cli, "Embedder", lambda **kwargs: FakeEmbedder())
+    monkeypatch.setattr(runner, "run_benchmark", fake_run_benchmark)
+    for task in ("this_and_that", "quilting", "odd_one_out"):
+        seen.clear()
+        with pytest.raises(SystemExit):
+            cli.main(["run", "--model", "writer", "--tasks", task, "--fast", "--no-save"])
+        assert seen["embedder"] is not None, task

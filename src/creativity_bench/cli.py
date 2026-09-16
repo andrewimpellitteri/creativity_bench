@@ -179,7 +179,17 @@ def cmd_run(args: argparse.Namespace) -> int:
     else:
         judge_client = client
 
-    needs_embeddings = {"telephone", "diversity", "style_transfer", "odd_one_out"}
+    # Keep in step with runner.run_benchmark's embedding_tasks set; a task
+    # missing here is unrunnable from the CLI ("Selected tasks require an
+    # embedder") even though its configuration is fine.
+    needs_embeddings = {
+        "telephone",
+        "diversity",
+        "style_transfer",
+        "odd_one_out",
+        "this_and_that",
+        "quilting",
+    }
     embedder = (
         Embedder(provider=resolve_provider(args.embed_provider), model=args.embed_model)
         if needs_embeddings.intersection(TASKS if tasks is None else tasks)
