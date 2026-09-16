@@ -178,3 +178,6 @@ cython_debug/
 
 # Published leaderboard inputs (copies of runs/ JSONs)
 !results/runs/
+
+# Agent worktrees and local Claude Code state
+.claude/
