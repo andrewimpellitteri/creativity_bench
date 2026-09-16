@@ -6,6 +6,7 @@ import argparse
 import math
 import sys
 
+from .calibration import DEFAULT_GATE, gate_names
 from .client import (
     PROVIDERS,
     Embedder,
@@ -110,7 +111,19 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--judge-provider", default="openai", choices=list(PROVIDERS))
     validate.add_argument("--base-url", default=None)
     validate.add_argument(
-        "--controls", default=None, help="JSON controls; default: development set"
+        "--gate",
+        default=DEFAULT_GATE,
+        choices=[*gate_names(), "all"],
+        help=f"Judge gate to validate (default: {DEFAULT_GATE}). 'all' validates every "
+        "gate and reports each separately, which costs one judge call per control "
+        "across all gates.",
+    )
+    validate.add_argument(
+        "--controls",
+        default=None,
+        help="JSON controls; default: the selected gate's development set. With "
+        "--gate all, one array covering several gates, each item naming its own "
+        '"gate" (items without one are same_but_different).',
     )
     validate.add_argument("--out", default="results/judge_validation.json")
 
@@ -240,20 +253,44 @@ def main(argv: list[str] | None = None) -> int:
             import json
             from pathlib import Path
 
-            from .calibration import load_controls, validate_judge
+            from .calibration import (
+                gate_failures,
+                group_by_gate,
+                load_controls,
+                validate_gates,
+                validate_judge,
+            )
             from .runner import protocol_fingerprint
 
-            controls = load_controls(args.controls)
+            # Load and schema-check the controls before any client is built, so a
+            # malformed control file fails without spending a judge call.
+            if args.gate == "all":
+                controls = group_by_gate(load_controls(args.controls)) if args.controls else None
+            else:
+                controls = load_controls(args.controls, gate=args.gate)
             judge = LLMClient(
                 provider=resolve_provider(args.judge_provider, args.base_url),
                 model=args.judge_model,
             )
-            result = validate_judge(judge, controls)
+            if args.gate == "all":
+                result = validate_gates(judge, controls)
+            else:
+                result = validate_judge(judge, controls, gate=args.gate)
             result["protocol_fingerprint"] = protocol_fingerprint()
             out = Path(args.out)
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(json.dumps(result, indent=2))
             print(f"Wrote {out}")
+            # Reported, not enforced here: the pilot gate is what blocks on these.
+            blockers = gate_failures(result)
+            for reason in blockers:
+                print(f"blocker: {reason}")
+            print(
+                "All development controls resolved and agreed (author-proposed labels, "
+                "not human validation)"
+                if not blockers
+                else f"{len(blockers)} development-control blocker(s); inspect before a pilot"
+            )
             return 0
         if args.command == "run":
             return cmd_run(args)
