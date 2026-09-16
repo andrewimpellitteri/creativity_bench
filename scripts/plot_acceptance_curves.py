@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from creativity_bench.visualize import plot_acceptance_curves  # noqa: E402
+from creativity_bench.visualize import plot_acceptance_curves
 
 
 def main(argv: list[str]) -> int:
