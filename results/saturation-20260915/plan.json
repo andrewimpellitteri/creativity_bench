@@ -1,0 +1,14 @@
+{
+  "models": [
+    "deepseek-flash",
+    "deepseek-v4-pro"
+  ],
+  "judge": "deepseek-v4-pro",
+  "provider": "deepseek",
+  "seeds": [
+    0
+  ],
+  "fast": false,
+  "protocol_fingerprint": "ec8487f4c8b14141f47deafb27ac1c43242521680b9cc885b2add7a5b902e7e1",
+  "note": "Development pilot; no independent human validation. Judge self-bias possible."
+}
