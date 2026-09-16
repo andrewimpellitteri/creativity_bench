@@ -41,7 +41,10 @@ def test_passing_validation_gates_nothing():
     ],
 )
 def test_identity_mismatches_are_rejected(kwargs, judge, fp, sha):
-    assert pilot.validation_gate_error(validation(**kwargs), judge=judge, fingerprint=fp, controls_sha=sha)
+    error = pilot.validation_gate_error(
+        validation(**kwargs), judge=judge, fingerprint=fp, controls_sha=sha
+    )
+    assert error
 
 
 def test_imperfect_control_rejects_even_with_matching_identity():
