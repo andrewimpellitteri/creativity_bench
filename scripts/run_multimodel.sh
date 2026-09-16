@@ -36,9 +36,10 @@ for seed in 0; do  # seed 1 is a later idempotent pass
 done
 
 if [[ -n "$OPENROUTER_API_KEY" ]]; then
-  for m in google/gemini-2.5-flash openai/gpt-4o-mini \
-           meta-llama/llama-4-scout anthropic/claude-haiku-4.5 \
-           mistralai/mistral-small-3.2-24b-instruct moonshotai/kimi-k2.5; do
+  for m in deepseek/deepseek-v4-flash qwen/qwen3.7-flash \
+           google/gemini-2.5-flash-lite openai/gpt-5-mini \
+           tencent/hy3 moonshotai/kimi-k3 \
+           nvidia/nemotron-3-ultra-550b-a55b; do
     for seed in 0 1; do
       run_one "$m" openrouter $seed
     done
