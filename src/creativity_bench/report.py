@@ -64,9 +64,7 @@ def task_diagnostics(runs: list[dict]) -> dict[str, float | None]:
     ]
 
     def final_survival(condition: str) -> float | None:
-        series = [
-            curve[condition] for curve in curves if isinstance(curve.get(condition), list)
-        ]
+        series = [curve[condition] for curve in curves if isinstance(curve.get(condition), list)]
         return _mean_present([s[-1] for s in series if s])
 
     gate_verdicts = [
@@ -83,9 +81,7 @@ def task_diagnostics(runs: list[dict]) -> dict[str, float | None]:
         "subversion_specificity": _mean_present(
             [m.get("specificity") for m in _metric_payloads(runs, "subversion")]
         ),
-        "shaggy_gate_pass": (
-            float(np.mean(gate_verdicts)) if gate_verdicts else None
-        ),
+        "shaggy_gate_pass": (float(np.mean(gate_verdicts)) if gate_verdicts else None),
     }
 
 

@@ -133,8 +133,7 @@ def rescore_run(path: Path, judge_client, *, limit: int | None = None) -> dict:
         "provider": run.get("provider"),
         "seed": run.get("seed"),
         "source_protocol_fingerprint": metadata.get("protocol_fingerprint"),
-        "source_judge_model": metadata.get("judge_model")
-        or task_details.get("judge_model"),
+        "source_judge_model": metadata.get("judge_model") or task_details.get("judge_model"),
         "attempted": 0,
         "skipped_attempts": {},
         "unresolved_original": 0,

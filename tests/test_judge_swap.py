@@ -254,9 +254,7 @@ def test_report_shape_and_context_warning(tmp_path):
     report = swap.rescore_runs([run], judge)
     assert report["tool"] == "rescore_judge_swap"
     assert report["schema"] == "judge-swap-v1"
-    assert report["notice"] == (
-        "Judge-swap measures judge sensitivity, not story quality."
-    )
+    assert report["notice"] == ("Judge-swap measures judge sensitivity, not story quality.")
     assert set(report) >= {
         "generated",
         "alternative_judge",
@@ -347,6 +345,7 @@ def test_cli_rejects_nonpositive_limit(tmp_path):
                 "0",
             ]
         )
+
 
 def test_cli_refuses_to_overwrite_existing_report(tmp_path, monkeypatch):
     run = write_run(
