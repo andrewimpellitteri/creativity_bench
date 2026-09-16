@@ -37,6 +37,7 @@ import numpy as np
 from tqdm.auto import tqdm
 
 from ..client import Embedder, LLMClient
+from ..judge import extract_json_object
 from ..metrics import pairwise_cosine_distances
 from .base import TaskResult, clamp01
 
@@ -78,7 +79,6 @@ Answer strictly as a JSON object with these two boolean fields and nothing else:
   or appended as a block>}}
 """
 
-_JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
 _GATE_FIELDS = ("comprehensible", "integrated")
 
 
@@ -111,10 +111,7 @@ def _identify(listing: str, fragments: list[dict]) -> list[str]:
 
 
 def _parse_gate(text: str) -> dict:
-    match = _JSON_BLOCK_RE.search(text)
-    if not match:
-        raise ValueError(f"No JSON object in judge response: {text!r}")
-    payload = json.loads(match.group())
+    payload = extract_json_object(text)
     if not isinstance(payload, dict) or any(
         type(payload.get(field)) is not bool for field in _GATE_FIELDS
     ):

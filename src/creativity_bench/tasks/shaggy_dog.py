@@ -49,6 +49,7 @@ import random
 import re
 
 from ..client import LLMClient
+from ..judge import extract_json_object
 from .base import TaskResult, clamp01
 
 # Gwern: "LLMs are prompted to write stories with no meaning or conclusion".
@@ -153,14 +154,8 @@ def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
     return len(a & b) / len(a | b)
 
 
-_JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
-
-
 def _parse_comprehensible(text: str) -> bool:
-    match = _JSON_BLOCK_RE.search(text)
-    if not match:
-        raise ValueError(f"No JSON object in gate response: {text!r}")
-    verdict = json.loads(match.group())
+    verdict = extract_json_object(text)
     if not isinstance(verdict, dict) or type(verdict.get("comprehensible")) is not bool:
         raise ValueError("comprehensible must be a JSON boolean")
     return verdict["comprehensible"]

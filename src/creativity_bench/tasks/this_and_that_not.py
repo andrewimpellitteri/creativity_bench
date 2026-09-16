@@ -67,12 +67,13 @@ import numpy as np
 from tqdm.auto import tqdm
 
 from ..client import Embedder, LLMClient
-from ..metrics import cosine_similarity
-from .base import TaskResult, clamp01
 
 # Shared geometry and JSON extraction: one metric and one parser across the two
 # This & That conditions, so a change to either cannot silently diverge.
-from .this_and_that import _JSON_BLOCK_RE, _angular
+from ..judge import extract_json_object
+from ..metrics import cosine_similarity
+from .base import TaskResult, clamp01
+from .this_and_that import _angular
 
 NEGATION_PROMPT = """\
 Here are two example stories. One is a model to follow; the other is a warning.
@@ -113,10 +114,7 @@ _GATE_FIELDS = ("draws_on_good", "comprehensible")
 
 
 def _parse_gate(text: str) -> dict:
-    match = _JSON_BLOCK_RE.search(text)
-    if not match:
-        raise ValueError(f"No JSON object in judge response: {text!r}")
-    payload = json.loads(match.group())
+    payload = extract_json_object(text)
     if not isinstance(payload, dict) or any(
         type(payload.get(field)) is not bool for field in _GATE_FIELDS
     ):

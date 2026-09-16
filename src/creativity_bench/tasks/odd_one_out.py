@@ -35,12 +35,12 @@ from __future__ import annotations
 
 import json
 import random
-import re
 
 import numpy as np
 from tqdm.auto import tqdm
 
 from ..client import Embedder, LLMClient
+from ..judge import extract_json_object
 from ..metrics import cosine_similarity
 from .base import TaskResult, clamp01
 
@@ -127,8 +127,6 @@ Answer strictly as a JSON object with one boolean field and nothing else:
 {{"qualifies": <true if the candidate still clearly belongs to the category "{theme}">}}
 """
 
-_JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
-
 
 def _clean_item(text: str) -> str:
     first_line = next((line for line in text.splitlines() if line.strip()), "")
@@ -136,10 +134,7 @@ def _clean_item(text: str) -> str:
 
 
 def _parse_qualification(text: str) -> bool:
-    match = _JSON_BLOCK_RE.search(text)
-    if not match:
-        raise ValueError(f"No JSON object in judge response: {text!r}")
-    verdict = json.loads(match.group())
+    verdict = extract_json_object(text)
     if not isinstance(verdict, dict) or type(verdict.get("qualifies")) is not bool:
         raise ValueError("qualifies must be a JSON boolean")
     return verdict["qualifies"]

@@ -32,12 +32,12 @@ from __future__ import annotations
 
 import json
 import random
-import re
 
 import numpy as np
 from tqdm.auto import tqdm
 
 from ..client import Embedder, LLMClient
+from ..judge import extract_json_object
 from ..metrics import cosine_similarity
 from .base import TaskResult, clamp01
 
@@ -77,15 +77,11 @@ Answer strictly as a JSON object with these three boolean fields and nothing els
  "comprehensible": <true if the candidate is an intelligible narrative, not nonsense>}}
 """
 
-_JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
 _GATE_FIELDS = ("draws_on_a", "draws_on_b", "comprehensible")
 
 
 def _parse_gate(text: str) -> dict:
-    match = _JSON_BLOCK_RE.search(text)
-    if not match:
-        raise ValueError(f"No JSON object in judge response: {text!r}")
-    payload = json.loads(match.group())
+    payload = extract_json_object(text)
     if not isinstance(payload, dict) or any(
         type(payload.get(field)) is not bool for field in _GATE_FIELDS
     ):

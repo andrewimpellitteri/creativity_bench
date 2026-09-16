@@ -32,11 +32,11 @@ from __future__ import annotations
 
 import json
 import random
-import re
 
 from tqdm.auto import tqdm
 
 from ..client import LLMClient
+from ..judge import extract_json_object
 from ..metrics import lexical_similarity
 from .base import TaskResult, clamp01
 
@@ -71,17 +71,13 @@ Answer strictly as a JSON object with these two fields and nothing else:
  "comprehensible": <true if the continuation is intelligible prose>}}
 """
 
-_JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
 # A continuation this similar to its own opening is a restatement, not a
 # continuation; it would make matching trivial for reasons the task is not about.
 RESTATEMENT_THRESHOLD = 0.8
 
 
 def _parse_match(text: str, count: int) -> dict:
-    match = _JSON_BLOCK_RE.search(text)
-    if not match:
-        raise ValueError(f"No JSON object in judge response: {text!r}")
-    payload = json.loads(match.group())
+    payload = extract_json_object(text)
     if not isinstance(payload, dict):
         raise ValueError("Judge response must be a JSON object")
     choice = payload.get("opening")

@@ -21,6 +21,56 @@ from .client import LLMClient
 
 JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
 
+
+def extract_json_object(text: str) -> dict:
+    """Return the last balanced JSON object in a judge response.
+
+    A greedy ``{.*}`` span is wrong on the two things judges actually do:
+    restate the schema before answering ("Recall the schema {...}. My answer:
+    {...}") makes the span cover both objects and fail to parse, and a trailing
+    note after the answer does the same. Scanning for balanced braces and taking
+    the LAST parseable object handles both, because the answer comes after the
+    preamble. Quoted braces and escapes are respected so a brace inside story
+    text cannot end the scan early.
+
+    A parse failure here means an unresolved judgment, which costs the whole run
+    its completeness flag, so being generous about surrounding prose is a
+    correctness matter, not a convenience.
+    """
+    candidates: list[dict] = []
+    depth = 0
+    start = -1
+    in_string = False
+    escaped = False
+    for index, char in enumerate(text):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            if depth == 0:
+                start = index
+            depth += 1
+        elif char == "}" and depth:
+            depth -= 1
+            if depth == 0:
+                try:
+                    value = json.loads(text[start : index + 1])
+                except ValueError:
+                    continue
+                if isinstance(value, dict):
+                    candidates.append(value)
+    if not candidates:
+        raise ValueError(f"No JSON object in judge response: {text!r}")
+    return candidates[-1]
+
+
 EDIT_JUDGE_PROMPT = """\
 You are evaluating an edit made to a short story.
 
@@ -55,10 +105,7 @@ class EditVerdict:
 
 
 def _parse_verdict(text: str) -> EditVerdict:
-    match = JSON_BLOCK_RE.search(text)
-    if not match:
-        raise ValueError(f"No JSON object in judge response: {text!r}")
-    payload = json.loads(match.group())
+    payload = extract_json_object(text)
     fields = ("coherent", "edits_applied", "quality_maintained")
     if not isinstance(payload, dict) or any(type(payload[k]) is not bool for k in fields):
         raise ValueError("Judge verdict fields must be JSON booleans")

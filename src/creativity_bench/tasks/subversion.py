@@ -48,14 +48,12 @@ from __future__ import annotations
 
 import itertools
 import json
-import re
 
 from tqdm.auto import tqdm
 
 from ..client import LLMClient
+from ..judge import extract_json_object
 from .base import TaskResult, clamp01
-
-JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
 
 # The named inversion dimensions, cycled in a fixed order so every model and
 # run faces the same assignment for a given run index.
@@ -91,10 +89,7 @@ preserving the rest>}}
 
 
 def _parse_opposite(text: str) -> bool:
-    match = JSON_BLOCK_RE.search(text)
-    if not match:
-        raise ValueError(f"No JSON object in judge response: {text!r}")
-    return bool(json.loads(match.group())["opposite"])
+    return bool(extract_json_object(text)["opposite"])
 
 
 def judge_opposite(
