@@ -427,3 +427,16 @@ def test_gate_failures_reports_a_missing_split():
     assert result["summaries"]["held_out"]
     assert gate_failures(result) == ["quilting: no controls on split 'development'"]
     assert gate_failures(result, split="held_out") == []
+
+
+def test_group_by_gate_splits_a_mixed_external_file(tmp_path):
+    from creativity_bench.calibration import SAME_BUT_DIFFERENT, group_by_gate
+
+    mixed = default_controls() + default_controls(COPYCAT) + default_controls(QUILTING)
+    path = tmp_path / "controls.json"
+    path.write_text(json.dumps(mixed))
+    grouped = group_by_gate(load_controls(path))
+    assert set(grouped) == {SAME_BUT_DIFFERENT, COPYCAT, QUILTING}
+    assert grouped[COPYCAT] == default_controls(COPYCAT)
+    # Items with no "gate" key are Same But Different, as every legacy file is.
+    assert grouped[SAME_BUT_DIFFERENT] == default_controls()

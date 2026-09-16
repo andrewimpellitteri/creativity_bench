@@ -603,6 +603,18 @@ def load_controls(path: str | Path | None = None, *, gate: str = DEFAULT_GATE) -
     return controls
 
 
+def group_by_gate(controls: list[dict]) -> dict[str, list[dict]]:
+    """Split a loaded control list into ``{gate: controls}``, ready for validate_gates.
+
+    Items without an explicit ``"gate"`` are Same But Different controls, which
+    is what every pre-existing external control file is.
+    """
+    grouped: dict[str, list[dict]] = {}
+    for item in controls:
+        grouped.setdefault(_spec(item.get("gate", DEFAULT_GATE)).name, []).append(item)
+    return grouped
+
+
 def _summarize(records: list[dict], fields: tuple[str, ...]) -> dict:
     """Per-split, per-dimension confusion counts, resolution rate, and accuracy.
 
