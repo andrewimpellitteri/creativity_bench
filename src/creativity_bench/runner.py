@@ -17,7 +17,12 @@ from .client import Embedder, LLMClient
 from .tasks import TASKS, TaskResult
 
 SCHEMA_VERSION = 2
-PROTOCOL_VERSION = "0.4-validity"
+# 0.5-coverage adds the three remaining Gwern tasks (This & That, Copycat,
+# Quilting). Scoring code for the 0.4 tasks is unchanged, so per-task 0.4 and
+# 0.5 numbers remain methodologically comparable; composites are NOT, because
+# the task roster they average over changed. The protocol fingerprint and the
+# selected-task list already force separate cohorts either way.
+PROTOCOL_VERSION = "0.5-coverage"
 
 DEFAULT_WEIGHTS = {
     "free_association": 0.20,
@@ -29,6 +34,9 @@ DEFAULT_WEIGHTS = {
     "subversion": 0.20,
     "shaggy_dog": 0.20,
     "same_but_different": 0.20,
+    "this_and_that": 0.20,
+    "copycat": 0.20,
+    "quilting": 0.20,
 }
 
 # Task sizes: (full, fast)
@@ -45,6 +53,9 @@ _SIZES = {
     "sub_runs": (3, 2),
     "distinct_premises": (6, 2),
     "distinct_attempts": (10, 3),
+    "n_pairs": (3, 1),
+    "n_openings": (5, 3),
+    "quilt_runs": (4, 2),
 }
 
 
@@ -102,7 +113,14 @@ def run_benchmark(
             f"Unknown tasks: {', '.join(sorted(unknown))}. Available: {', '.join(TASKS)}"
         )
 
-    embedding_tasks = {"telephone", "diversity", "style_transfer", "odd_one_out"}
+    embedding_tasks = {
+        "telephone",
+        "diversity",
+        "style_transfer",
+        "odd_one_out",
+        "this_and_that",
+        "quilting",
+    }
     if embedder is None and embedding_tasks.intersection(task_names):
         raise ValueError("Selected tasks require an embedder")
 
@@ -152,6 +170,26 @@ def run_benchmark(
                 data.CREATIVE_PREMISES, size["distinct_premises"]
             ),
             attempts=size["distinct_attempts"],
+        ),
+        "this_and_that": dict(
+            embedder=embedder,
+            judge_client=judge_client,
+            stories=data.SAMPLE_STORIES,
+            n_pairs=size["n_pairs"],
+            rng=rng,
+        ),
+        "copycat": dict(
+            judge_client=judge_client,
+            openings=data.COPYCAT_OPENINGS,
+            n_openings=size["n_openings"],
+            rng=rng,
+        ),
+        "quilting": dict(
+            embedder=embedder,
+            judge_client=judge_client,
+            fragments=data.QUILT_FRAGMENTS,
+            runs=size["quilt_runs"],
+            rng=rng,
         ),
         "subversion": dict(
             judge_client=judge_client,

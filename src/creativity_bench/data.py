@@ -200,3 +200,95 @@ CREATIVE_PREMISES = [
     "A shop sells memories with an explicit no-refund policy.",
     "A creature can imitate every human action except making a promise.",
 ]
+
+
+# Gwern, "Copycat" (https://gwern.net/creative-benchmark#possible-tasks):
+# "select a bunch of diverse authors' openings and ask the LLM to complete
+# them"; the LLM-uta variant isolates the endings and asks whether they match
+# the corresponding openings. These openings are ORIGINAL pastiche written for
+# this benchmark rather than quoted authors: copyrighted openings would be
+# memorized by the writer and recognizable to the matching judge from the
+# source text alone, which would measure recall instead of style flexibility.
+COPYCAT_OPENINGS = [
+    {
+        "id": "hardboiled",
+        "voice": "hardboiled detective, first person, clipped sentences",
+        "text": (
+            "The office smelled like yesterday's coffee and worse decisions. She came in without "
+            "knocking, which told me two things: she had money, and she had already tried "
+            "somebody cheaper. I put my feet on the desk and waited for the lie."
+        ),
+    },
+    {
+        "id": "victorian",
+        "voice": "Victorian epistolary, ornate and formal",
+        "text": (
+            "My dear Augusta, — You will forgive the lateness of this letter when I tell you that "
+            "the house has been at sixes and sevens since Thursday, and that your cousin, whose "
+            "prudence I have always doubted, has taken it upon himself to invite the surveyor to "
+            "dinner. I write by candle, the lamp having been carried off to the east wing."
+        ),
+    },
+    {
+        "id": "minimalist",
+        "voice": "contemporary minimalist, flat declaratives, domestic",
+        "text": (
+            "They ate at the counter because the table had the boxes on it. He said the movers "
+            "were coming Tuesday. She said Tuesday was fine. Outside, somebody was running a leaf "
+            "blower, and neither of them said anything about the noise."
+        ),
+    },
+    {
+        "id": "folktale",
+        "voice": "oral folktale, patterned repetition, anonymous narrator",
+        "text": (
+            "Now in that country there was a miller, and the miller had three sons, and the "
+            "youngest was counted a fool because he asked questions of the river. Every morning "
+            "he went down to the water, and every morning the water answered him, and every "
+            "morning he told nobody."
+        ),
+    },
+    {
+        "id": "bureaucratic",
+        "voice": "institutional document, deadpan administrative register",
+        "text": (
+            "INCIDENT REPORT 44-C (continued). At 02:14 the night custodian reported that the "
+            "fourth-floor corridor was, in her words, longer than it had been at 22:00. Per "
+            "protocol the corridor was measured. The measurement is appended. No further action "
+            "was authorized at this time."
+        ),
+    },
+    {
+        "id": "breathless_ya",
+        "voice": "first-person young adult, present tense, urgent",
+        "text": (
+            "Okay so the thing nobody tells you about running is that your body keeps going after "
+            "your brain has stopped agreeing to it. I am four blocks from home and my keys are "
+            "somewhere behind me on the pavement and I am absolutely not turning around to look "
+            "for them, not tonight, not after what I saw in the window."
+        ),
+    },
+]
+
+# Gwern, "Quilting" (https://gwern.net/creative-benchmark#possible-tasks):
+# "provide shuffled text fragments/quotes; the model selects a subset, lists
+# them, then writes a story". Fragments are original single lines chosen to be
+# combinable in many ways, so no subset is the obviously correct recipe.
+QUILT_FRAGMENTS = [
+    {"id": "F01", "text": "the last ferry had already gone"},
+    {"id": "F02", "text": "a name written on the inside of a coat"},
+    {"id": "F03", "text": "nobody had watered the plants in a month"},
+    {"id": "F04", "text": "the dog knew before anyone else did"},
+    {"id": "F05", "text": "there was still salt on the windows"},
+    {"id": "F06", "text": "she counted the money twice and then again"},
+    {"id": "F07", "text": "the radio only picked up one station after dark"},
+    {"id": "F08", "text": "a key that fit nothing in the house"},
+    {"id": "F09", "text": "they had agreed never to mention the summer"},
+    {"id": "F10", "text": "the clock in the hall was an hour slow on purpose"},
+    {"id": "F11", "text": "he brought the wrong flowers to the wrong door"},
+    {"id": "F12", "text": "the bridge was closed for repairs that never started"},
+    {"id": "F13", "text": "somebody had taken all the photographs down"},
+    {"id": "F14", "text": "the bread was still warm when the phone rang"},
+    {"id": "F15", "text": "a receipt from a shop that had burned down"},
+    {"id": "F16", "text": "the neighbors turned their lights off early"},
+]

@@ -108,6 +108,45 @@ there is no generation retry-until-success in the task. API transport and empty
 reasoning-response retries are separately logged. Novelty is judged against
 accepted full stories; writer context uses summaries, so summarizer bias remains.
 
+## Implemented in protocol 0.5-coverage
+
+The three single-model tasks that were still unimplemented are now in the suite.
+Scoring code for the 0.4 tasks is untouched, so per-task 0.4 and 0.5 numbers stay
+methodologically comparable; composites do not, because the roster changed. Every
+run's protocol fingerprint and selected-task list already force separate cohorts.
+
+- **This & That.** The source metric — summed embedding distance from both
+  examples to the blend — is reported (`mean_summed_cosine_distance`) but not
+  scored, because a raw sum is bounded by how far apart the sampled pair already
+  is and therefore ranks pairs rather than models. The score is angular excess
+  over the pair's own geodesic floor, calibrated per pair against an unrelated
+  baseline story from the same corpus: 1 means the blend sits between the
+  examples, 0 means it interpolates no better than a story that never saw them.
+  A judge gate (draws on A, draws on B, comprehensible) must pass before distance
+  earns credit, since generic or empty text can land between two points without
+  blending anything. Open weakness: the baseline is a single corpus story, so the
+  per-pair scale is noisy; a multi-baseline estimate is untested.
+- **Copycat (LLM-uta).** The base task ranks completion quality, which needs
+  raters this project does not yet have, so the implemented variant is the one
+  with ground truth the judge never sees: continuations are matched back to their
+  openings by a blinded judge, and scoring is chance-corrected accuracy. Open
+  weakness: the matcher may key on subject matter rather than voice, and it has
+  not been validated against human matchers. Label permutations and raw responses
+  are saved so an alternative judge can rerun the same matching offline.
+- **Quilting.** Fragment selection and fragment use are verified offline by
+  normalized text matching (deterministic, re-checkable from the transcript at no
+  cost); the judge is used only for comprehensibility and for whether fragments
+  are woven in rather than listed. Both failure modes are reported: the same
+  recipe every run, and different recipes producing the same story. Open
+  weakness: distinct-subset rate saturates quickly at small run counts, and one
+  valid run yields a degenerate score that is a gate result, not a diversity
+  measurement — it is flagged `degenerate` and must not be pooled.
+
+All three follow the 0.4 validity discipline: unresolved judgments earn no credit
+AND mark the run incomplete, so an evaluator outage cannot become a ranked claim
+about low creativity. None has been run live against a real model yet; see
+[the workboard](WORKBOARD.md).
+
 ## Research rationale
 
 [Gwern's proposal](https://gwern.net/creative-benchmark) motivates iterative tests
@@ -179,7 +218,8 @@ Completed since the audit (through 2026-09-15; see
 - Fast five-task suite run with costs recorded; fast sizes saturate free
   association, Camel's Back and Subversion for these models.
 
-Still open, in priority order:
+Still open, in priority order (the full engineering and research board, with
+status and owners, is in [WORKBOARD.md](WORKBOARD.md)):
 
 1. Obtain independent human judgments on the blinded packet
    (`results/human-review-20260915`) and a held-out control corpus, including style
@@ -193,5 +233,6 @@ Still open, in priority order:
 4. Validate transfer from these task profiles to blinded assessments of useful
    creative writing. No software test can establish that relationship alone.
 
-Do not pool protocol 0.4 scores with 0.3-audit or legacy scores. Normalization and
+Do not pool protocol 0.4 scores with 0.3-audit or legacy scores, and do not pool
+0.5-coverage composites with 0.4 composites. Normalization and
 validity gates changed, and the corpus, task budgets and sampling changed too.

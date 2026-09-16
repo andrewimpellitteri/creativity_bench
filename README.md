@@ -13,14 +13,19 @@ Works with any OpenAI-compatible API: OpenAI, DeepSeek, z.ai (GLM), OpenRouter, 
 
 This is an exploratory suite, not a validated measure of general creativity.
 See [the design audit and implementation roadmap](BENCHMARK_DESIGN.md) for scoring
-failure modes, proposed controls, and the next experiment. Compare task profiles
+failure modes, proposed controls, and the next experiment, and
+[the workboard](WORKBOARD.md) for what is open right now and in what order. Compare task profiles
 and inspect outputs before interpreting the composite.
 
 ## The tasks
 
 Every task produces a descriptive score in **[0, 1]**. The composite remains an
-exploratory weighted mean, not a calibrated creativity scale. Protocol `0.4-validity`
-changes scoring and cannot be compared directly with earlier runs.
+exploratory weighted mean, not a calibrated creativity scale. Protocol `0.5-coverage`
+adds the three tasks that were still missing from Gwern's single-model list
+(This & That, Copycat, Quilting) without changing how the `0.4-validity` tasks
+score; per-task numbers stay methodologically comparable across the two, but
+composites do not, because the roster they average over changed. Earlier
+protocols changed scoring itself and are not comparable at all.
 
 | Task | What it measures | Score |
 |------|------------------|-------|
@@ -30,6 +35,9 @@ changes scoring and cannot be compared directly with earlier runs.
 | **Camel's back** | Coherence under stacked edits: apply 1–3 random edits per round, an LLM judge verifies coherence | Fraction of edit rounds survived |
 | **Diversity (DRY)** | Variation across repeated identical prompts | Within-prompt mean cosine distance / 2; between-prompt distance and effective rank are diagnostics |
 | **Style transfer** | Genre transformation: summarize a story, rewrite it in a different genre | Cosine distance / 2, gated on plot preservation, target genre and comprehensibility |
+| **This & that** | Blending two unlike examples into one story that is like both | Angular interpolation excess against an unrelated baseline story, gated on a judge confirming the story draws on both examples |
+| **Copycat** (LLM-uta) | Holding a borrowed voice instead of collapsing to a house style | Chance-corrected accuracy of a blinded judge matching each continuation back to its opening |
+| **Quilting** | Recipe variety: pick fragments from a shuffled pile, then use them | Validity-gated mean of distinct-subset rate and story embedding diversity across runs |
 | **Odd one out** | Anti-anchoring: given themed example items, name the most different item that still belongs to the category | Mean per-list minimum embedding distance to the examples (cosine [0, 2] halved into [0, 1]); the runner requires membership judgments; non-members earn zero and unresolved judgments mark the run incomplete |
 | **Subversion** | Negation: write "the opposite" of a generated story; a judge classifies every story/subversion pair as opposite or not | Within-pair hit rate minus cross-pair false-positive rate (Youden's J) |
 | **Shaggy dog** | Non-moralizing: write a deliberately pointless story, judges then name its moral | Inverted judge agreement (divergent morals score high; stated moral fails outright) |
@@ -200,7 +208,12 @@ shown separately in
 
 `--fast` is a smoke test, not comparable to full runs. Same But Different uses
 6 generation attempts in fast mode (2 premises × 3) and 60 in full mode
-(6 × 10), plus up to three judge requests per eligible attempt. Exact duplicates
+(6 × 10), plus up to three judge requests per eligible attempt. The tasks added
+in `0.5-coverage` are comparatively cheap: This & That is 1 generation + up to 2
+judge calls per pair (fast 1 pair, full 3), Copycat is k generations + up to 2k
+judge calls (fast k=3, full k=5), and Quilting is 1 generation + up to 2 judge
+calls per run (fast 2 runs, full 4). Copycat needs no embedder; This & That and
+Quilting embed 4 and `valid_runs` texts respectively. Exact duplicates
 skip judging. Diversity now generates two stories per prompt. Prices depend on
 your providers; no cost estimate is inferred from token counts. Saved usage is
 per run, with actual token budgets and finish reasons recorded for generation
@@ -217,7 +230,14 @@ The test suite runs entirely offline against fake clients.
 
 ## Contributing
 
-PRs and issues welcome — the remaining benchmarks from Gwern's post are open, and results from more models are appreciated.
+PRs and issues welcome. The twelve tasks above cover Gwern's iteration,
+style-flexibility and difference/negation groups. Still unimplemented from the
+post: This & That—But Not Like That, Rubric Writing, the Thematic Apperception
+Test, the Fermi Problem Contest, Worldbuilding / Fanfic Fantasizing, and the
+whole multi-agent family (Star Chameleon, Exquisite Corpse, Copycat: Truesight,
+Style Laboratory, multi-agent Free Association). See
+[the workboard](WORKBOARD.md) for those and for the open validation work.
+Results from more models are appreciated.
 
 ## License
 

@@ -1,13 +1,16 @@
 from .base import TaskResult
 from .camels_back import camels_back
+from .copycat import copycat
 from .diversity import dont_repeat_yourself
 from .free_association import free_association
 from .odd_one_out import odd_one_out
+from .quilting import quilting
 from .same_but_different import same_but_different
 from .shaggy_dog import shaggy_dog
 from .style_transfer import style_transfer
 from .subversion import subversion
 from .telephone import telephone_game
+from .this_and_that import this_and_that
 
 TASKS = {
     "same_but_different": same_but_different,
@@ -17,6 +20,9 @@ TASKS = {
     "camels_back": camels_back,
     "diversity": dont_repeat_yourself,
     "style_transfer": style_transfer,
+    "this_and_that": this_and_that,
+    "copycat": copycat,
+    "quilting": quilting,
     "subversion": subversion,
     "shaggy_dog": shaggy_dog,
 }

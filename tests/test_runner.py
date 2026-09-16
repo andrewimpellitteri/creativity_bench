@@ -10,6 +10,17 @@ from creativity_bench.visualize import load_runs
 PASS_VERDICT = '{"coherent": true, "edits_applied": true, "quality_maintained": true}'
 
 
+def _quilt_response(prompt: str) -> str:
+    """Build a well-formed quilting answer from the fragments the prompt lists."""
+    import re
+
+    size = int(re.search(r"Choose exactly (\d+)", prompt).group(1))
+    listed = re.findall(r"^- (.+)$", prompt, re.MULTILINE)[:size]
+    body = " ".join(f"And then {fragment}." for fragment in listed)
+    listing = "\n".join(f"- {fragment}" for fragment in listed)
+    return f"FRAGMENTS:\n{listing}\n\nSTORY:\nA quilted story. {body}"
+
+
 def full_responder(messages):
     prompt = messages[-1]["content"]
     # Check the subversion judge first: stories embedded in its prompt may
@@ -19,6 +30,14 @@ def full_responder(messages):
             '{"plot_preserved": true, "genre_achieved": true, '
             '"comprehensible": true, "reason": "ok"}'
         )
+    if "draws_on_a" in prompt:
+        return '{"draws_on_a": true, "draws_on_b": true, "comprehensible": true}'
+    if "integrated" in prompt:
+        return '{"comprehensible": true, "integrated": true}'
+    if '"opening"' in prompt and "continuation" in prompt:
+        return '{"opening": 1, "comprehensible": true}'
+    if "Choose exactly" in prompt:  # quilting: quote the first fragments back
+        return _quilt_response(prompt)
     if "qualifies" in prompt:
         return '{"qualifies": true}'
     if "premise_adherent" in messages[0]["content"]:
@@ -61,6 +80,9 @@ def test_run_benchmark_end_to_end(tmp_path, capsys):
         "camels_back",
         "diversity",
         "style_transfer",
+        "this_and_that",
+        "copycat",
+        "quilting",
         "odd_one_out",
         "subversion",
         "shaggy_dog",
@@ -136,7 +158,7 @@ def test_task_inputs_do_not_depend_on_other_tasks():
     alone = run(["diversity"])
     together = run(["camels_back", "diversity"])
     assert alone.task_results["diversity"].details == together.task_results["diversity"].details
-    assert alone.metadata["protocol_version"] == "0.4-validity"
+    assert alone.metadata["protocol_version"] == "0.5-coverage"
 
 
 def test_run_usage_is_snapshot_and_not_cumulative():
