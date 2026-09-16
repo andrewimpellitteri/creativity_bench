@@ -193,10 +193,8 @@ def telephone_game(
     for condition in conditions:
         cond_chains = [c for c in chains if c["condition"] == condition]
         survival_curves[condition] = [
-            sum(
-                c["collapse_iter"] is None or c["collapse_iter"] > t
-                for c in cond_chains
-            ) / len(cond_chains)
+            sum(c["collapse_iter"] is None or c["collapse_iter"] > t for c in cond_chains)
+            / len(cond_chains)
             for t in range(1, max_iter + 1)
         ]
 

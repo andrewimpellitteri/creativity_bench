@@ -63,9 +63,7 @@ def test_subversion_prompt_names_the_dimension_and_preserved_facts():
 
 
 def test_subversion_dimensions_rotate_deterministically():
-    result = subversion(
-        make_dimensioned_writer(), make_dimension_judge(), premises=["p"], runs=4
-    )
+    result = subversion(make_dimensioned_writer(), make_dimension_judge(), premises=["p"], runs=4)
     dims = [pair["dimension"] for pair in result.details["pairs"] if pair["within"]]
     assert dims == [INVERSION_DIMENSIONS[i % len(INVERSION_DIMENSIONS)] for i in range(4)]
 

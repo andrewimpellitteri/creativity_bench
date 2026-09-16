@@ -27,9 +27,12 @@ def validation(**overrides):
 
 
 def test_passing_validation_gates_nothing():
-    assert pilot.validation_gate_error(
-        validation(), judge="judge-a", fingerprint="fp", controls_sha="sha"
-    ) is None
+    assert (
+        pilot.validation_gate_error(
+            validation(), judge="judge-a", fingerprint="fp", controls_sha="sha"
+        )
+        is None
+    )
 
 
 @pytest.mark.parametrize(

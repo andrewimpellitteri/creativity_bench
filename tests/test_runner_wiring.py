@@ -157,9 +157,7 @@ def test_report_renders_new_task_metrics(tmp_path):
     text = build_leaderboard(runs_dir, generated="2026-09-15")
 
     assert "### Task diagnostics" in text
-    assert (
-        "| `alpha` | 0.250 | 0.750 | 1.000 | 0.500 | 1.000 |" in text
-    ), text
+    assert "| `alpha` | 0.250 | 0.750 | 1.000 | 0.500 | 1.000 |" in text, text
     # Legacy runs without task payloads render as em dashes, not crashes.
     assert "| `legacy` | — | — | — | — | — |" in text
 

@@ -40,9 +40,7 @@ def validation_gate_error(
     # Stop on any unresolved or incorrect development control, not a validated
     # acceptance threshold. Review failures before spending a larger pilot budget.
     summaries = validation["summaries"]["development"]
-    if any(
-        d["resolution_rate"] != 1 or d["accuracy_resolved"] != 1 for d in summaries.values()
-    ):
+    if any(d["resolution_rate"] != 1 or d["accuracy_resolved"] != 1 for d in summaries.values()):
         return "Judge did not pass all development controls; inspect validation first"
     return None
 
@@ -88,9 +86,7 @@ def main() -> None:
     v = json.loads(validation.read_text())
     from creativity_bench.calibration import load_controls
 
-    controls_sha = hashlib.sha256(
-        json.dumps(load_controls(), sort_keys=True).encode()
-    ).hexdigest()
+    controls_sha = hashlib.sha256(json.dumps(load_controls(), sort_keys=True).encode()).hexdigest()
     error = validation_gate_error(
         v, judge=args.judge, fingerprint=protocol_fingerprint(), controls_sha=controls_sha
     )

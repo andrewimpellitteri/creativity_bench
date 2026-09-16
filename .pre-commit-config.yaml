@@ -1,8 +1,10 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.5
+    # Keep in lockstep with the `version:` pinned for astral-sh/ruff-action in
+    # .github/workflows/ci.yml, or pre-commit and CI will disagree on formatting.
+    rev: v0.16.8
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix]
       - id: ruff-format
   - repo: https://github.com/pre-commit/pre-commit-hooks
