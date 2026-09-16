@@ -21,8 +21,9 @@ and inspect outputs before interpreting the composite.
 
 Every task produces a descriptive score in **[0, 1]**. The composite remains an
 exploratory weighted mean, not a calibrated creativity scale. Protocol `0.5-coverage`
-adds the three tasks that were still missing from Gwern's single-model list
-(This & That, Copycat, Quilting) without changing how the `0.4-validity` tasks
+adds the tasks that were still missing from Gwern's single-model list
+(This & That, This & That—But Not Like That, Copycat, Quilting) without
+changing how the `0.4-validity` tasks
 score; per-task numbers stay methodologically comparable across the two, but
 composites do not, because the roster they average over changed. Earlier
 protocols changed scoring itself and are not comparable at all.
@@ -36,6 +37,7 @@ protocols changed scoring itself and are not comparable at all.
 | **Diversity (DRY)** | Variation across repeated identical prompts | Within-prompt mean cosine distance / 2; between-prompt distance and effective rank are diagnostics |
 | **Style transfer** | Genre transformation: summarize a story, rewrite it in a different genre | Cosine distance / 2, gated on plot preservation, target genre and comprehensibility |
 | **This & that** | Blending two unlike examples into one story that is like both | Angular interpolation excess against an unrelated baseline story, gated on a judge confirming the story draws on both examples |
+| **This & that—but not like that** | Negation: follow a good example while ending up further from a designated bad example than the good one already is | Share of the pair's remaining angular headroom away from the bad example, gated on a judge confirming the story still draws on the good example and is comprehensible |
 | **Copycat** (LLM-uta) | Holding a borrowed voice instead of collapsing to a house style | Chance-corrected accuracy of a blinded judge matching each continuation back to its opening |
 | **Quilting** | Recipe variety: pick fragments from a shuffled pile, then use them | Validity-gated mean of distinct-subset rate and story embedding diversity across runs |
 | **Odd one out** | Anti-anchoring: given themed example items, name the most different item that still belongs to the category | Mean per-list minimum embedding distance to the examples (cosine [0, 2] halved into [0, 1]); the runner requires membership judgments; non-members earn zero and unresolved judgments mark the run incomplete |
@@ -230,11 +232,10 @@ The test suite runs entirely offline against fake clients.
 
 ## Contributing
 
-PRs and issues welcome. The twelve tasks above cover Gwern's iteration,
+PRs and issues welcome. The thirteen tasks above cover Gwern's iteration,
 style-flexibility and difference/negation groups. Still unimplemented from the
-post: This & That—But Not Like That, Rubric Writing, the Thematic Apperception
-Test, the Fermi Problem Contest, Worldbuilding / Fanfic Fantasizing, and the
-whole multi-agent family (Star Chameleon, Exquisite Corpse, Copycat: Truesight,
+post: Rubric Writing, the Thematic Apperception Test, the Fermi Problem
+Contest, Worldbuilding / Fanfic Fantasizing, and the whole multi-agent family (Star Chameleon, Exquisite Corpse, Copycat: Truesight,
 Style Laboratory, multi-agent Free Association). See
 [the workboard](WORKBOARD.md) for those and for the open validation work.
 Results from more models are appreciated.

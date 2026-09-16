@@ -20,6 +20,7 @@ offline:
 | Task | Score | Gate | Live evidence |
 |---|---|---|---|
 | `this_and_that` | Angular interpolation excess vs. an unrelated baseline story | judge: draws on A, draws on B, comprehensible | **none yet** |
+| `this_and_that_not` | Share of the pair's angular headroom away from the designated bad example | judge: draws on the good example, comprehensible | **none yet** |
 | `copycat` (LLM-uta) | Chance-corrected blinded opening↔continuation matching accuracy | continuation non-empty, not a restatement, comprehensible | **none yet** |
 | `quilting` | Validity-gated mean of distinct-recipe rate and story embedding diversity | offline fragment-use check + judge: comprehensible, integrated | **none yet** |
 
@@ -128,12 +129,11 @@ full-budget Same But Different beyond the saturation cohort if budgets change.
 ## P3 — tasks from the post that are still unimplemented
 
 Implemented: Free Association, Telephone, Camel's Back, Same But Different,
-Don't Repeat Yourself, Extreme Style Transfer, This & That, Copycat (LLM-uta),
-Quilting, Odd One Out, Subversion, Shaggy Dog.
+Don't Repeat Yourself, Extreme Style Transfer, This & That, This & That—But Not
+Like That, Copycat (LLM-uta), Quilting, Odd One Out, Subversion, Shaggy Dog.
 
 | Task | Shape | Blocker / note |
 |---|---|---|
-| This & That—But Not Like That | Same two examples, one designated "bad"; the output must end up further from the bad example than the good example is | Cheapest next task: the geometry and gate already exist in `this_and_that.py`; it is a second condition, not a new module |
 | Rubric Writing | Explicit tone/POV/locale/form parameters, systematically varied; measure divergence across versions | Needs a parameter grid and a constraint-satisfaction gate per parameter, or it measures nothing but topic |
 | Fermi Problem Contest | Curated problems with knowable answers; score the volume of valid-but-varied solution paths | Needs a curated answer corpus with tolerance bounds |
 | Worldbuilding / Fanfic Fantasizing | Story plus enumerated unsaid elements; list length as a breadth proxy | List length is trivially gameable; needs a distinctness/validity gate before it means anything |

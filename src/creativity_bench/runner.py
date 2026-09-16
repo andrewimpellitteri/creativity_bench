@@ -17,11 +17,13 @@ from .client import Embedder, LLMClient
 from .tasks import TASKS, TaskResult
 
 SCHEMA_VERSION = 2
-# 0.5-coverage adds the three remaining Gwern tasks (This & That, Copycat,
-# Quilting). Scoring code for the 0.4 tasks is unchanged, so per-task 0.4 and
-# 0.5 numbers remain methodologically comparable; composites are NOT, because
-# the task roster they average over changed. The protocol fingerprint and the
-# selected-task list already force separate cohorts either way.
+# 0.5-coverage adds the remaining single-model Gwern tasks (This & That,
+# This & That--But Not Like That, Copycat, Quilting). Scoring code for the 0.4
+# tasks is unchanged, so per-task 0.4 and 0.5 numbers remain methodologically
+# comparable; composites are NOT, because the task roster they average over
+# changed. The version string is not bumped again for the negation condition
+# because no run has been published under 0.5 yet; the protocol fingerprint and
+# the selected-task list force separate cohorts either way.
 PROTOCOL_VERSION = "0.5-coverage"
 
 DEFAULT_WEIGHTS = {
@@ -35,6 +37,7 @@ DEFAULT_WEIGHTS = {
     "shaggy_dog": 0.20,
     "same_but_different": 0.20,
     "this_and_that": 0.20,
+    "this_and_that_not": 0.20,
     "copycat": 0.20,
     "quilting": 0.20,
 }
@@ -54,6 +57,7 @@ _SIZES = {
     "distinct_premises": (6, 2),
     "distinct_attempts": (10, 3),
     "n_pairs": (3, 1),
+    "negation_pairs": (3, 1),
     "n_openings": (5, 3),
     "quilt_runs": (4, 2),
 }
@@ -119,6 +123,7 @@ def run_benchmark(
         "style_transfer",
         "odd_one_out",
         "this_and_that",
+        "this_and_that_not",
         "quilting",
     }
     if embedder is None and embedding_tasks.intersection(task_names):
@@ -176,6 +181,13 @@ def run_benchmark(
             judge_client=judge_client,
             stories=data.SAMPLE_STORIES,
             n_pairs=size["n_pairs"],
+            rng=rng,
+        ),
+        "this_and_that_not": dict(
+            embedder=embedder,
+            judge_client=judge_client,
+            stories=data.SAMPLE_STORIES,
+            n_pairs=size["negation_pairs"],
             rng=rng,
         ),
         "copycat": dict(
