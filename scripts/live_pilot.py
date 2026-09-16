@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -19,6 +20,31 @@ def load_local_key() -> None:
         key, sep, value = line.removeprefix("export ").partition("=")
         if sep and key.strip() == "DEEPSEEK_API_KEY":
             os.environ[key.strip()] = value.strip().strip('"\x27')
+
+
+def validation_gate_error(
+    validation: dict, *, judge: str, fingerprint: str, controls_sha: str
+) -> str | None:
+    """Return a rejection reason when a saved validation cannot gate this pilot.
+
+    calibration.py is outside the protocol fingerprint, so the validation's
+    controls hash must be checked explicitly: a validation produced against a
+    different control set would otherwise pass this gate.
+    """
+    if validation["judge_model"] != judge:
+        return "Validation judge does not match this pilot"
+    if validation["protocol_fingerprint"] != fingerprint:
+        return "Validation protocol does not match this pilot"
+    if validation.get("controls_sha256") != controls_sha:
+        return "Validation controls do not match this pilot's control set"
+    # Stop on any unresolved or incorrect development control, not a validated
+    # acceptance threshold. Review failures before spending a larger pilot budget.
+    summaries = validation["summaries"]["development"]
+    if any(
+        d["resolution_rate"] != 1 or d["accuracy_resolved"] != 1 for d in summaries.values()
+    ):
+        return "Judge did not pass all development controls; inspect validation first"
+    return None
 
 
 def main() -> None:
@@ -60,15 +86,16 @@ def main() -> None:
     if not validation.exists():
         parser.error("Run judge validation first")
     v = json.loads(validation.read_text())
-    if v["judge_model"] != args.judge or v["protocol_fingerprint"] != protocol_fingerprint():
-        parser.error("Validation judge/protocol does not match this pilot")
-    # Stop on any unresolved or incorrect development control, not a validated
-    # acceptance threshold. Review failures before spending a larger pilot budget.
-    if any(
-        d["resolution_rate"] != 1 or d["accuracy_resolved"] != 1
-        for d in v["summaries"]["development"].values()
-    ):
-        parser.error("Judge did not pass all development controls; inspect validation first")
+    from creativity_bench.calibration import load_controls
+
+    controls_sha = hashlib.sha256(
+        json.dumps(load_controls(), sort_keys=True).encode()
+    ).hexdigest()
+    error = validation_gate_error(
+        v, judge=args.judge, fingerprint=protocol_fingerprint(), controls_sha=controls_sha
+    )
+    if error:
+        parser.error(error)
     plan = {
         "models": args.models,
         "judge": args.judge,

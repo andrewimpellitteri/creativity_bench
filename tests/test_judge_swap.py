@@ -347,3 +347,27 @@ def test_cli_rejects_nonpositive_limit(tmp_path):
                 "0",
             ]
         )
+
+def test_cli_refuses_to_overwrite_existing_report(tmp_path, monkeypatch):
+    run = write_run(
+        tmp_path / "run_o.json",
+        [attempt(1, "story one", True, verdict_json=verdict())],
+    )
+    fake = FakeClient(lambda _: verdict(), model="alt-judge")
+    monkeypatch.setattr(swap, "build_judge", lambda provider, model: fake)
+    out = tmp_path / "swap.json"
+    out.write_text("{}")
+    with pytest.raises(SystemExit):
+        swap.main(
+            [
+                "--run",
+                str(run),
+                "--judge-model",
+                "alt-judge",
+                "--judge-provider",
+                "deepseek",
+                "--out",
+                str(out),
+            ]
+        )
+    assert out.read_text() == "{}"

@@ -283,6 +283,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     payload = json.dumps(report, indent=2)
     if args.out is not None:
+        if args.out.exists():
+            parser.error(f"refusing to overwrite existing report: {args.out}")
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(payload)
         print(f"Wrote {args.out}", file=sys.stderr)

@@ -15,7 +15,7 @@ run_one () {
   provider=$2
   seed=$3
   safe=$(printf '%s' "$model" | tr "/" "_")
-  if grep -qs "\"seed\": $seed" $OUT/${safe}_*.json 2>/dev/null; then
+  if grep -qs "\"seed\": $seed," $OUT/${safe}_*.json 2>/dev/null; then
     echo "skip $model seed $seed (already saved)"
     return
   fi
