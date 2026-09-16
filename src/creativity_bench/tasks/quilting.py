@@ -119,19 +119,26 @@ def _parse_gate(text: str) -> dict:
     return {field: payload[field] for field in _GATE_FIELDS}
 
 
-def _judge_quilt(judge_client: LLMClient, chosen_text: list[str], story: str):
+def evaluate_quilt(judge_client: LLMClient, *, fragments: list[str], story: str) -> dict:
+    """Production quilt-gate judging path, also usable by offline fixture calibration.
+
+    ``fragments`` is the chosen fragment TEXT, in the order the writer listed it.
+    Returns ``{"verdict": {comprehensible, integrated} | None, "judge_attempts":
+    [raw responses], "status": "ok" | "unresolved"}``. Judge transport errors are
+    not caught here.
+    """
     prompt = QUILT_JUDGE_PROMPT.format(
-        fragments="\n".join(f"- {text}" for text in chosen_text), story=story
+        fragments="\n".join(f"- {text}" for text in fragments), story=story
     )
     attempts: list[str] = []
     for _ in range(2):
         response = judge_client.generate(prompt, temperature=0.0, max_tokens=2000)
         attempts.append(response)
         try:
-            return _parse_gate(response), attempts
+            return {"verdict": _parse_gate(response), "judge_attempts": attempts, "status": "ok"}
         except (ValueError, KeyError, json.JSONDecodeError):
             continue
-    return None, attempts
+    return {"verdict": None, "judge_attempts": attempts, "status": "unresolved"}
 
 
 def quilting(
@@ -203,8 +210,11 @@ def quilting(
             records.append(record)
             continue
 
-        verdict, attempts = _judge_quilt(judge_client, [by_id[fid] for fid in chosen], story)
-        record["judge_attempts"] = attempts
+        evaluation = evaluate_quilt(
+            judge_client, fragments=[by_id[fid] for fid in chosen], story=story
+        )
+        verdict = evaluation["verdict"]
+        record["judge_attempts"] = evaluation["judge_attempts"]
         record["verdict"] = verdict
         if verdict is None:
             record["validity_status"] = "unresolved"

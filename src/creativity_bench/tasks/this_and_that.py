@@ -89,19 +89,23 @@ def _parse_gate(text: str) -> dict:
     return {field: payload[field] for field in _GATE_FIELDS}
 
 
-def _judge_blend(
-    judge_client: LLMClient, story_a: str, story_b: str, candidate: str
-) -> tuple[dict | None, list[str]]:
+def evaluate_blend(judge_client: LLMClient, *, story_a: str, story_b: str, candidate: str) -> dict:
+    """Production blend-gate judging path, also usable by offline fixture calibration.
+
+    Returns ``{"verdict": {draws_on_a, draws_on_b, comprehensible} | None,
+    "judge_attempts": [raw responses], "status": "ok" | "unresolved"}``. One parse
+    retry, as in the task loop. Judge transport errors are not caught here.
+    """
     prompt = BLEND_JUDGE_PROMPT.format(story_a=story_a, story_b=story_b, candidate=candidate)
     attempts: list[str] = []
     for _ in range(2):
         response = judge_client.generate(prompt, temperature=0.0, max_tokens=2000)
         attempts.append(response)
         try:
-            return _parse_gate(response), attempts
+            return {"verdict": _parse_gate(response), "judge_attempts": attempts, "status": "ok"}
         except (ValueError, KeyError, json.JSONDecodeError):
             continue
-    return None, attempts
+    return {"verdict": None, "judge_attempts": attempts, "status": "unresolved"}
 
 
 def _angular(a: np.ndarray, b: np.ndarray) -> float:
@@ -184,8 +188,11 @@ def this_and_that(
             }
         )
 
-        verdict, attempts = _judge_blend(judge_client, first["text"], second["text"], candidate)
-        record["judge_attempts"] = attempts
+        evaluation = evaluate_blend(
+            judge_client, story_a=first["text"], story_b=second["text"], candidate=candidate
+        )
+        verdict = evaluation["verdict"]
+        record["judge_attempts"] = evaluation["judge_attempts"]
         record["verdict"] = verdict
         if verdict is None:
             record["validity_status"] = "unresolved"
