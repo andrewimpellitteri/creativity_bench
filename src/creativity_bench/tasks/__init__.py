@@ -29,4 +29,21 @@ TASKS = {
     "shaggy_dog": shaggy_dog,
 }
 
-__all__ = ["TaskResult", "TASKS", *TASKS.keys()]
+# Tasks that cannot run without an Embedder. The runner refuses to start them
+# without one, the CLI uses it to decide whether to build one at all, and
+# comparison.py uses it to require embedder identity in a run's provenance.
+# It lived in three hand-maintained copies that drifted apart when tasks were
+# added; keep it here, next to TASKS, so a new task cannot miss one of them.
+EMBEDDING_TASKS = frozenset(
+    {
+        "telephone",
+        "diversity",
+        "style_transfer",
+        "odd_one_out",
+        "this_and_that",
+        "this_and_that_not",
+        "quilting",
+    }
+)
+
+__all__ = ["TaskResult", "TASKS", "EMBEDDING_TASKS", *TASKS.keys()]

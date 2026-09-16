@@ -7,6 +7,8 @@ from collections import defaultdict
 
 import numpy as np
 
+from .tasks import EMBEDDING_TASKS
+
 PROVENANCE_FIELDS = (
     "protocol_version",
     "selected_tasks",
@@ -77,8 +79,7 @@ def verified_provenance(run: dict) -> bool:
         or set(selected) != set(run.get("scores", {}))
     ):
         return False
-    embedding_tasks = {"telephone", "diversity", "style_transfer", "odd_one_out"}
-    if embedding_tasks.intersection(selected) and any(
+    if EMBEDDING_TASKS.intersection(selected) and any(
         not isinstance(metadata[f], str) or not metadata[f].strip()
         for f in ("embed_model", "embed_provider")
     ):

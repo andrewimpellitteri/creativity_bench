@@ -14,7 +14,7 @@ from pathlib import Path
 
 from . import data
 from .client import Embedder, LLMClient
-from .tasks import TASKS, TaskResult
+from .tasks import EMBEDDING_TASKS, TASKS, TaskResult
 
 SCHEMA_VERSION = 2
 # 0.5-coverage adds the remaining single-model Gwern tasks (This & That,
@@ -117,16 +117,7 @@ def run_benchmark(
             f"Unknown tasks: {', '.join(sorted(unknown))}. Available: {', '.join(TASKS)}"
         )
 
-    embedding_tasks = {
-        "telephone",
-        "diversity",
-        "style_transfer",
-        "odd_one_out",
-        "this_and_that",
-        "this_and_that_not",
-        "quilting",
-    }
-    if embedder is None and embedding_tasks.intersection(task_names):
+    if embedder is None and EMBEDDING_TASKS.intersection(task_names):
         raise ValueError("Selected tasks require an embedder")
 
     seed = seed if seed is not None else random.randrange(2**31)
