@@ -32,6 +32,8 @@ def full_responder(messages):
         )
     if "draws_on_a" in prompt:
         return '{"draws_on_a": true, "draws_on_b": true, "comprehensible": true}'
+    if "draws_on_good" in prompt:
+        return '{"draws_on_good": true, "comprehensible": true}'
     if "integrated" in prompt:
         return '{"comprehensible": true, "integrated": true}'
     if '"opening"' in prompt and "continuation" in prompt:
@@ -81,6 +83,7 @@ def test_run_benchmark_end_to_end(tmp_path, capsys):
         "diversity",
         "style_transfer",
         "this_and_that",
+        "this_and_that_not",
         "copycat",
         "quilting",
         "odd_one_out",

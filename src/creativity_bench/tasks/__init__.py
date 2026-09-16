@@ -11,6 +11,7 @@ from .style_transfer import style_transfer
 from .subversion import subversion
 from .telephone import telephone_game
 from .this_and_that import this_and_that
+from .this_and_that_not import this_and_that_not
 
 TASKS = {
     "same_but_different": same_but_different,
@@ -21,6 +22,7 @@ TASKS = {
     "diversity": dont_repeat_yourself,
     "style_transfer": style_transfer,
     "this_and_that": this_and_that,
+    "this_and_that_not": this_and_that_not,
     "copycat": copycat,
     "quilting": quilting,
     "subversion": subversion,
