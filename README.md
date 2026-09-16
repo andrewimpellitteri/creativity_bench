@@ -151,6 +151,11 @@ uv run creativity-bench gallery --run runs/pilot/RUN.json --out results/gallery.
 uv run creativity-bench validate-judge --judge-model JUDGE \
     --out results/judge_validation.json
 
+# Or exercise every judge gate: same_but_different, this_and_that, copycat,
+# quilting. --gate NAME picks one; --gate all runs and reports each separately.
+uv run creativity-bench validate-judge --judge-model JUDGE --gate all \
+    --out results/judge_validation.json
+
 # Larger pilot: 6 of 20 public premises, 10 attempts each, per seed.
 uv run creativity-bench run --model MODEL --judge-model JUDGE \
     --tasks same_but_different --n 5 --seed 0 --runs-dir runs/pilot-full
@@ -158,12 +163,29 @@ uv run creativity-bench run --model MODEL --judge-model JUDGE \
 uv run creativity-bench report --runs-dir runs/pilot-full --out results/profile.md
 ```
 
-Default controls include copies, paraphrases, name substitutions, a distinct
-valid plot, unrelated prose, nonsense, a premise violation and an instruction
-attack. Their labels are proposed development labels, **not independent human
-validation**. Supply a JSON array through `validate-judge --controls FILE` for
-reviewed labels and a held-out split; see [the design](BENCHMARK_DESIGN.md).
-The validation command makes real judge API calls.
+The bundled controls now cover four judge gates — 25 development controls in
+all: 9 for Same But Different (copies, paraphrases, name substitutions, a
+distinct valid plot, unrelated prose, nonsense, a premise violation and an
+instruction attack), 7 for This & That (which of two sources a blend draws on),
+5 for Copycat (blinded voice matching) and 4 for Quilting (fragment
+integration). `--gate all` reports resolution rate and accuracy per gate and
+per dimension, so one weak gate is visible rather than averaged away; a
+dimension that is undefined for a control is left unlabeled rather than
+guessed. Each gate's controls run through that task's production judge prompt
+and retry policy.
+
+Every one of those labels is an **author-proposed development label, not
+independent human validation**. No outside annotator has seen any of them.
+Agreement means the judge answered the way this repository's authors expected
+on a handful of constructed cases, and nothing more. Supply a JSON array
+through `validate-judge --controls FILE` for reviewed labels and a held-out
+split — with `--gate all`, each item names its own `"gate"`; see
+[the design](BENCHMARK_DESIGN.md).
+
+The validation command makes real judge API calls: one per control, two or
+three when a response fails schema validation. `--gate all` therefore costs
+roughly 25 judge calls per run against the bundled controls, where the default
+single-gate invocation costs 9.
 
 ### Comparing models fairly
 

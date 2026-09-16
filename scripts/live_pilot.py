@@ -8,6 +8,13 @@ import json
 import os
 from pathlib import Path
 
+from creativity_bench.calibration import (
+    DEFAULT_GATE,
+    all_default_controls,
+    gate_failures,
+    gate_names,
+    load_controls,
+)
 from creativity_bench.client import LLMClient, resolve_provider
 
 
@@ -22,6 +29,32 @@ def load_local_key() -> None:
             os.environ[key.strip()] = value.strip().strip('"\x27')
 
 
+def controls_sha256(payload) -> str:
+    """Hash a control set exactly as calibration.py hashes it while validating."""
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
+def validated_gates(validation: dict) -> list[str]:
+    """The judge gates a saved validation actually ran."""
+    if validation.get("kind") == "judge_control_validation_suite":
+        return list(validation["gates"])
+    return [validation.get("gate", DEFAULT_GATE)]
+
+
+def expected_controls_sha(validation: dict) -> str:
+    """The bundled-control hash a saved validation must carry to gate this pilot.
+
+    validate_gates() hashes the ``{gate: controls}`` mapping it validated;
+    validate_judge() hashes one gate's control list. Hashing the bundled controls
+    the same way the saved validation hashed its own keeps the check meaningful
+    for either shape, and still rejects a validation run against controls that
+    have changed since.
+    """
+    if validation.get("kind") == "judge_control_validation_suite":
+        return controls_sha256(all_default_controls())
+    return controls_sha256(load_controls(gate=validation.get("gate", DEFAULT_GATE)))
+
+
 def validation_gate_error(
     validation: dict, *, judge: str, fingerprint: str, controls_sha: str
 ) -> str | None:
@@ -29,7 +62,9 @@ def validation_gate_error(
 
     calibration.py is outside the protocol fingerprint, so the validation's
     controls hash must be checked explicitly: a validation produced against a
-    different control set would otherwise pass this gate.
+    different control set would otherwise pass this gate. Every registered gate
+    must be covered, and every one of them must pass, not only Same But
+    Different.
     """
     if validation["judge_model"] != judge:
         return "Validation judge does not match this pilot"
@@ -37,11 +72,15 @@ def validation_gate_error(
         return "Validation protocol does not match this pilot"
     if validation.get("controls_sha256") != controls_sha:
         return "Validation controls do not match this pilot's control set"
-    # Stop on any unresolved or incorrect development control, not a validated
-    # acceptance threshold. Review failures before spending a larger pilot budget.
-    summaries = validation["summaries"]["development"]
-    if any(d["resolution_rate"] != 1 or d["accuracy_resolved"] != 1 for d in summaries.values()):
-        return "Judge did not pass all development controls; inspect validation first"
+    missing = [gate for gate in gate_names() if gate not in validated_gates(validation)]
+    if missing:
+        return f"Validation does not cover judge gate(s): {', '.join(missing)}"
+    # Stop on any unresolved or incorrect development control, on any gate. This
+    # is a stop-and-inspect rule, not a validated acceptance threshold: review
+    # the failures before spending a larger pilot budget.
+    failures = gate_failures(validation)
+    if failures:
+        return "Judge did not pass all development controls; inspect first: " + "; ".join(failures)
     return None
 
 
@@ -67,15 +106,20 @@ def main() -> None:
     from creativity_bench.runner import protocol_fingerprint, run_benchmark, save_run
 
     if args.action == "validate":
-        from creativity_bench.calibration import load_controls, validate_judge
+        from creativity_bench.calibration import validate_gates
 
-        result = validate_judge(judge, load_controls())
+        # Every registered gate, one judge call per control (two or three when a
+        # response fails schema validation). The pilot blocks on any of them.
+        result = validate_gates(judge)
         result["protocol_fingerprint"] = protocol_fingerprint()
         result["usage"] = dict(vars(judge.usage))
         result["requests"] = list(judge.request_log)
         path = args.out / "judge_validation.json"
         path.write_text(json.dumps(result, indent=2))
-        print(json.dumps(result["summaries"], indent=2), flush=True)
+        summaries = {name: gate["summaries"] for name, gate in result["gates"].items()}
+        print(json.dumps(summaries, indent=2), flush=True)
+        for reason in gate_failures(result):
+            print(f"blocker: {reason}", flush=True)
         print(f"Saved {path}", flush=True)
         return
     if not args.models:
@@ -84,11 +128,11 @@ def main() -> None:
     if not validation.exists():
         parser.error("Run judge validation first")
     v = json.loads(validation.read_text())
-    from creativity_bench.calibration import load_controls
-
-    controls_sha = hashlib.sha256(json.dumps(load_controls(), sort_keys=True).encode()).hexdigest()
     error = validation_gate_error(
-        v, judge=args.judge, fingerprint=protocol_fingerprint(), controls_sha=controls_sha
+        v,
+        judge=args.judge,
+        fingerprint=protocol_fingerprint(),
+        controls_sha=expected_controls_sha(v),
     )
     if error:
         parser.error(error)

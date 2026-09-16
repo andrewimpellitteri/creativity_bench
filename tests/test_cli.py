@@ -206,3 +206,176 @@ def test_embedding_tasks_get_an_embedder(monkeypatch):
         with pytest.raises(SystemExit):
             cli.main(["run", "--model", "writer", "--tasks", task, "--fast", "--no-save"])
         assert seen["embedder"] is not None, task
+
+
+# --- validate-judge --gate ----------------------------------------------------
+
+
+def _fake_judge(monkeypatch, responder):
+    """Route the CLI's judge client through an offline fake. No network."""
+    from conftest import FakeClient
+
+    from creativity_bench import cli
+
+    clients = []
+
+    def make_client(*, provider, model, **kwargs):
+        client = FakeClient(responder, model=model)
+        client.provider = provider
+        clients.append(client)
+        return client
+
+    monkeypatch.setattr(cli, "LLMClient", make_client)
+    return clients
+
+
+def _superset_verdict(_messages):
+    """One response that satisfies every gate's schema at once.
+
+    Agreement is beside the point here: the CLI's job is to run the right gates
+    and save the right shape, not to be right about the labels.
+    """
+    return json.dumps(
+        {
+            "premise_adherent": True,
+            "comprehensible": True,
+            "plot_distinct": True,
+            "draws_on_a": True,
+            "draws_on_b": True,
+            "integrated": True,
+            "opening": 1,
+            "evidence": "fixture evidence",
+            "summary": "fixture summary",
+        }
+    )
+
+
+def test_validate_judge_gate_defaults_to_same_but_different(monkeypatch, tmp_path):
+    from creativity_bench import cli
+
+    args = build_parser().parse_args(["validate-judge", "--judge-model", "judge"])
+    assert args.gate == "same_but_different"
+
+    _fake_judge(monkeypatch, _superset_verdict)
+    out = tmp_path / "validation.json"
+    assert cli.main(["validate-judge", "--judge-model", "judge", "--out", str(out)]) == 0
+    saved = json.loads(out.read_text())
+    # Unchanged shape for the pre-existing invocation.
+    assert saved["kind"] == "judge_control_validation"
+    assert saved["gate"] == "same_but_different"
+    assert set(saved["summaries"]["development"]) == {
+        "premise_adherent",
+        "comprehensible",
+        "plot_distinct",
+    }
+    assert len(saved["records"]) == 9
+    assert saved["protocol_fingerprint"]
+
+
+def test_validate_judge_gate_selects_one_new_gate(monkeypatch, tmp_path):
+    from creativity_bench import cli
+    from creativity_bench.calibration import default_controls
+
+    _fake_judge(monkeypatch, _superset_verdict)
+    out = tmp_path / "validation.json"
+    assert (
+        cli.main(
+            ["validate-judge", "--judge-model", "judge", "--gate", "quilting", "--out", str(out)]
+        )
+        == 0
+    )
+    saved = json.loads(out.read_text())
+    assert saved["gate"] == "quilting"
+    assert set(saved["summaries"]["development"]) == {"comprehensible", "integrated"}
+    assert len(saved["records"]) == len(default_controls("quilting"))
+
+
+def test_validate_judge_gate_all_reports_every_gate_separately(monkeypatch, tmp_path):
+    from creativity_bench import cli
+    from creativity_bench.calibration import all_default_controls, gate_names
+
+    _fake_judge(monkeypatch, _superset_verdict)
+    out = tmp_path / "validation.json"
+    assert (
+        cli.main(["validate-judge", "--judge-model", "judge", "--gate", "all", "--out", str(out)])
+        == 0
+    )
+    saved = json.loads(out.read_text())
+    assert saved["kind"] == "judge_control_validation_suite"
+    assert list(saved["gates"]) == gate_names()
+    for name, single in saved["gates"].items():
+        assert single["gate"] == name
+        assert single["summaries"]["development"]
+        assert len(single["records"]) == len(all_default_controls()[name])
+    assert saved["protocol_fingerprint"]
+    # 9 + 7 + 5 + 4 development controls.
+    assert sum(len(g["records"]) for g in saved["gates"].values()) == 25
+
+
+def test_validate_judge_gate_all_accepts_a_mixed_control_file(monkeypatch, tmp_path):
+    from creativity_bench import cli
+    from creativity_bench.calibration import default_controls
+
+    mixed = default_controls("same_but_different")[:1] + default_controls("quilting")[:1]
+    controls = tmp_path / "controls.json"
+    controls.write_text(json.dumps(mixed))
+    _fake_judge(monkeypatch, _superset_verdict)
+    out = tmp_path / "validation.json"
+    assert (
+        cli.main(
+            [
+                "validate-judge",
+                "--judge-model",
+                "judge",
+                "--gate",
+                "all",
+                "--controls",
+                str(controls),
+                "--out",
+                str(out),
+            ]
+        )
+        == 0
+    )
+    saved = json.loads(out.read_text())
+    assert list(saved["gates"]) == ["same_but_different", "quilting"]
+    assert all(len(g["records"]) == 1 for g in saved["gates"].values())
+
+
+def test_validate_judge_reports_blockers_without_spending_a_pilot(monkeypatch, tmp_path, capsys):
+    from creativity_bench import cli
+
+    _fake_judge(monkeypatch, lambda _messages: "not json at all")
+    out = tmp_path / "validation.json"
+    assert (
+        cli.main(
+            ["validate-judge", "--judge-model", "judge", "--gate", "quilting", "--out", str(out)]
+        )
+        == 0
+    )
+    printed = capsys.readouterr().out
+    assert "blocker: quilting.integrated" in printed
+    assert "resolved; unresolved judgments are not agreement" in printed
+
+
+def test_validate_judge_rejects_a_bad_control_file_before_any_judge_call(monkeypatch, tmp_path):
+    from creativity_bench import cli
+
+    controls = tmp_path / "controls.json"
+    controls.write_text(json.dumps([{"id": "x"}]))
+    clients = _fake_judge(monkeypatch, _superset_verdict)
+    assert (
+        cli.main(
+            [
+                "validate-judge",
+                "--judge-model",
+                "judge",
+                "--controls",
+                str(controls),
+                "--out",
+                str(tmp_path / "v.json"),
+            ]
+        )
+        == 1
+    )
+    assert clients == []
