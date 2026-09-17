@@ -84,7 +84,33 @@ premise-adherent and comprehensible.
 | results/pilot-20260915 | 0.4-validity pre-wiring | SBD only, seeds 0–1 |
 | results/extended-20260915 | 0.4-validity post-wiring | 5-task suite, 12 models (below) + SBD seeds 2–3 |
 
-## Addendum: multi-model expansion (same cohort, same day)
+## Addendum 2: full roster — 23 models, n=2 everywhere (2026-09-17)
+
+The cohort now holds 46 complete runs of 23 models (all n=2, seeds 0+1, zero
+unresolved judgments, zero incomplete evaluations): the original twelve, seven
+OpenRouter expansion models, a GLM seed-1 backfill, and four more families
+(grok-4.20, gemini-3-flash-preview, command-a, phi-4). Judge-swap sensitivity
+for the whole cohort's SBD attempts is in `../judge-swap/SUMMARY.md`
+(99-100% agreement on validity dimensions, 86-91% on plot distinctness, one
+alternative judge 33% unresolved and excluded fail-closed).
+
+Composite ranking (exploratory, unvalidated weighting): deepseek-v4-pro 0.93
+and glm-5.3-flash 0.93 lead; glm-4.5-air 0.91 and deepseek-flash 0.91 next;
+kimi-k3 0.88 best OpenRouter debut; phi-4 0.43 and gemini-2.5-flash-lite 0.58
+trail. Per-task failure signatures are the interesting signal: gpt-5-mini
+collapses on Camel's Back (0.17), gemini-2.5-flash-lite and qwen3.7-flash on
+Subversion (0.00/0.25), grok-4.20 on free association (0.65) and SBD (0.33),
+while shaggy dog stays the only task with a smooth 0.6-0.8 spread. The judge
+model ranks first overall: self-judging bias remains a live caveat, mitigated
+by the swap evidence but not eliminated. Serving path matters: DeepSeek V4
+Flash via OpenRouter scores 0.50 on free association vs 1.00 direct.
+
+Charts: `BENCHMARK_GRAPH.png` (original twelve), `GRAPH_EXPANSION.png` (the
+eleven later additions plus both deepseek anchors). Full table: `REPORT.md`.
+`scripts/run_multimodel.sh` is now the single idempotent driver for the whole
+roster (skips every saved model/seed pair; reruns only fill gaps).
+
+## Addendum 1: multi-model expansion (same cohort, same day)
 
 After the initial four deepseek/GLM runs, the cohort grew to **12 models**
 (20 runs) by adding four GLM variants via the z.ai coding endpoint and six
