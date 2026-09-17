@@ -3,6 +3,7 @@
 # Five non-embedding tasks, fast sizes, paired seeds 0 and 1.
 # Judge fixed to the validated deepseek-v4-pro for every writer.
 # Idempotent: skips any (model, seed) already saved in the runs directory.
+# The roster lists every model ever run in this cohort; reruns only fill gaps.
 set -a
 source .env
 set +a
@@ -26,7 +27,8 @@ run_one () {
     --runs-dir "$OUT"
 }
 
-for seed in 0; do  # seed 1 is a later idempotent pass
+for seed in 0 1; do
+  # DeepSeek (direct) and the GLM coding endpoint.
   run_one deepseek-flash deepseek $seed
   run_one deepseek-v4-pro deepseek $seed
   run_one glm-4.6 zai-coding $seed
@@ -36,10 +38,14 @@ for seed in 0; do  # seed 1 is a later idempotent pass
 done
 
 if [[ -n "$OPENROUTER_API_KEY" ]]; then
-  for m in deepseek/deepseek-v4-flash qwen/qwen3.7-flash \
-           google/gemini-2.5-flash-lite openai/gpt-5-mini \
-           tencent/hy3 moonshotai/kimi-k3 \
-           nvidia/nemotron-3-ultra-550b-a55b; do
+  for m in anthropic/claude-haiku-4.5 google/gemini-2.5-flash \
+           meta-llama/llama-4-scout mistralai/mistral-small-3.2-24b-instruct \
+           moonshotai/kimi-k2.5 openai/gpt-4o-mini \
+           deepseek/deepseek-v4-flash google/gemini-2.5-flash-lite \
+           microsoft/phi-4 moonshotai/kimi-k3 nvidia/nemotron-3-ultra-550b-a55b \
+           qwen/qwen3.7-flash tencent/hy3 \
+           cohere/command-a google/gemini-3-flash-preview \
+           x-ai/grok-4.20; do
     for seed in 0 1; do
       run_one "$m" openrouter $seed
     done
