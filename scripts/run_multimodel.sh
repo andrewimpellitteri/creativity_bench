@@ -36,7 +36,9 @@ for seed in 0 1; do
 done
 
 if [[ -n "$OPENROUTER_API_KEY" ]]; then
-  for m in google/gemini-2.5-flash openai/gpt-4o-mini \
+  for m in x-ai/grok-4.20 google/gemini-3-flash-preview \
+           cohere/command-a microsoft/phi-4 \
+           google/gemini-2.5-flash openai/gpt-4o-mini \
            meta-llama/llama-4-scout anthropic/claude-haiku-4.5 \
            mistralai/mistral-small-3.2-24b-instruct moonshotai/kimi-k2.5; do
     for seed in 0 1; do
