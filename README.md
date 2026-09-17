@@ -9,15 +9,19 @@ An evaluation suite for measuring the creative capabilities of large language mo
 
 Works with any OpenAI-compatible API: OpenAI, DeepSeek, z.ai (GLM), OpenRouter, or a custom endpoint.
 
-![Per-task scores and exploratory composite for twelve models on five tasks](results/extended-20260915/BENCHMARK_GRAPH.png)
+![Per-task scores and exploratory composite for the original twelve models on five tasks](results/extended-20260915/BENCHMARK_GRAPH.png)
 
-<sub>Twelve models, five non-embedding tasks, fast budgets, one pinned judge
-(`deepseek-v4-pro`), protocol `0.4-validity`. **Read the flat rows first:** free
-association, Camel's back and much of Subversion sit at 1.00 for nearly every
-model. That is the budget saturating, not twelve models tying — a result about
-this cohort's sizes, not about creativity. Only Same But Different and Shaggy
-Dog separate models here. Full cohort in
+<sub>Twenty-three models across two charts, five non-embedding tasks, fast
+budgets (seeds 0–1, n=2 per model), one pinned judge (`deepseek-v4-pro`),
+protocol `0.4-validity`. **Read the flat rows first:** free association sits at
+1.00 for nearly every model and Camel's back is close behind. That is the
+budget saturating, not models tying — a result about this cohort's sizes, not
+about creativity. Same But Different, Subversion and Shaggy Dog separate
+models here. Second chart: the eleven later additions plus both DeepSeek
+anchors. Full cohort in
 [`results/extended-20260915/`](results/extended-20260915/).</sub>
+
+![Per-task scores and exploratory composite for the eleven later additions](results/extended-20260915/GRAPH_EXPANSION.png)
 
 ## Benchmark status
 
@@ -243,15 +247,40 @@ tooling, not a validated measurement.
 ### Same But Different pilot (protocol `0.4-validity`)
 
 Matched fast pilot (2 premises × 3 attempts, seeds 0–1) with the judge pinned
-to `deepseek-v4-pro`, which passed all 8 development controls (100% resolution
-and accuracy on premise adherence, comprehensibility and plot distinctness).
-The judge also graded its own runs, so self-preference bias is possible and
-unquantified.
+to `deepseek-v4-pro`, which passed all nine development controls (100%
+resolution and accuracy on premise adherence, comprehensibility and plot
+distinctness, including an instruction-bearing candidate). The judge also
+graded its own runs, so self-preference bias is possible; judge-swap
+rescoring with two alternative judges measured 99–100% agreement on validity
+dimensions and 86–91% on plot distinctness
+([`results/judge-swap/SUMMARY.md`](results/judge-swap/SUMMARY.md)).
 
 | Model | Seed 0 | Seed 1 | Mean |
 |---|---|---|---|
 | `deepseek-flash` | 1.000 | 1.000 | 1.000 |
 | `deepseek-v4-pro` | 0.833 | 1.000 | 0.917 |
+
+The cohort has since grown to **23 models, n=2 each** (46 complete runs, zero
+incomplete). Current exploratory composite leaders — full table in
+[`REPORT.md`](results/extended-20260915/REPORT.md), caveats in
+[`FINDINGS.md`](results/extended-20260915/FINDINGS.md):
+
+| # | Model | Composite | Notable failure signature |
+|---|---|---|---|
+| 1 | `deepseek-v4-pro` (judge) | 0.93 | — |
+| 2 | `glm-5.3-flash` | 0.93 | — |
+| 3 | `glm-4.5-air` | 0.91 | — |
+| 4 | `deepseek-flash` | 0.91 | — |
+| 5 | `moonshotai/kimi-k3` | 0.88 | Camel's back 0.67 |
+| 6 | `glm-4.6` | 0.87 | Subversion 0.75 |
+| 7 | `anthropic/claude-haiku-4.5` | 0.87 | SBD 0.67 |
+| 8 | `google/gemini-3-flash-preview` | 0.84 | Subversion 0.75 |
+| … | full table of 23 | | |
+| 23 | `microsoft/phi-4` | 0.43 | free association 0.50, Camel's back 0.33 |
+
+The judge model ranks first: self-judging bias remains a live caveat. Serving
+path matters too — DeepSeek V4 Flash via OpenRouter scores 0.50 on free
+association vs 1.00 direct.
 
 `deepseek-v4-pro`'s single rejection is legible in the saved evidence: the
 story was adherent and comprehensible but reused an accepted story's
