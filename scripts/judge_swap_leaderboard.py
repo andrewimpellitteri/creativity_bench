@@ -74,7 +74,7 @@ def main() -> int:
         "--flash", type=Path, required=True, help="Swap report, deepseek-flash judge"
     )
     parser.add_argument(
-        "--glm", type=Path, required=True, help="Swap report, glm-5.3-flash judge"
+        "--glm", type=Path, help="Optional second swap report (glm-5.3-flash judge)"
     )
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
@@ -82,22 +82,30 @@ def main() -> int:
     prod = production_scores(args.runs_dir)
     orig_a = per_model(json.loads(args.flash.read_text()), "original_verdict")
     flash = per_model(json.loads(args.flash.read_text()), "swapped_verdict")
-    orig_b = per_model(json.loads(args.glm.read_text()), "original_verdict")
-    glm = per_model(json.loads(args.glm.read_text()), "swapped_verdict")
+    orig_b, glm = {}, {}
+    if args.glm:
+        orig_b = per_model(json.loads(args.glm.read_text()), "original_verdict")
+        glm = per_model(json.loads(args.glm.read_text()), "swapped_verdict")
 
     models = sorted(set(prod) & set(orig_a) & set(flash) & set(orig_b) & set(glm))
+    if not args.glm:
+        models = sorted(set(prod) & set(orig_a) & set(flash))
     if len(models) < 5:
         import sys
 
         print("Too few models with complete swaps; refusing to rank", file=sys.stderr)
         return 1
 
-    replayed_prod = {m: (orig_a[m] + orig_b[m]) / 2 for m in models}
+    replayed_prod = {
+        m: ((orig_a[m] + orig_b[m]) / 2 if m in orig_b else orig_a[m])
+        for m in models
+    }
     columns = {
         "replayed original (deepseek-v4-pro)": replayed_prod,
         "deepseek-flash as judge": flash,
-        "glm-5.3-flash as judge": glm,
     }
+    if args.glm:
+        columns["glm-5.3-flash as judge"] = glm
     lines = [
         "# Alternative Same But Different leaderboard (swapped judges)",
         "",
@@ -105,14 +113,17 @@ def main() -> int:
         "same saved stories; unresolved verdicts count as rejections (fail-closed).",
         "Production score shown for reference. n=2 seeds per model; fast budget.",
         "",
-        "| model | production | replayed original | flash judge | glm judge |",
-        "|---|---|---|---|---|",
+        "| model | production | replayed original | flash judge |"
+        + (" glm judge |" if args.glm else ""),
+        "|---|---|---|---|" + "---|" if args.glm else "|---|---|---|---|",
     ]
     for m in sorted(models, key=lambda m: -columns["replayed original (deepseek-v4-pro)"][m]):
-        lines.append(
+        row = (
             f"| {m} | {prod.get(m, float('nan')):.2f} | {replayed_prod[m]:.2f} "
-            f"| {flash[m]:.2f} | {glm[m]:.2f} |"
+            f"| {flash[m]:.2f} "
         )
+        row += f"| {glm[m]:.2f} |" if args.glm else "|"
+        lines.append(row)
     lines += ["", "Rank correlations across judges (Spearman):"]
     rank_sets = {k: ranks(v) for k, v in columns.items()}
     keys = list(rank_sets)
