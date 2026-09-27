@@ -11,9 +11,21 @@ from creativity_bench.data import COPYCAT_OPENINGS
 from creativity_bench.tasks.copycat import copycat
 
 OPENINGS = [
-    {"id": "noir", "voice": "noir", "text": "The detective Vera Marlowe poured the whiskey like a confession."},
-    {"id": "folk", "voice": "folktale", "text": "Now in that country there lived a miller named Odilia."},
-    {"id": "memo", "voice": "memo", "text": "INCIDENT REPORT 44-C: the corridor was measured twice."},
+    {
+        "id": "noir",
+        "voice": "noir",
+        "text": "The detective Vera Marlowe poured the whiskey like a confession.",
+    },
+    {
+        "id": "folk",
+        "voice": "folktale",
+        "text": "Now in that country there lived a miller named Odilia.",
+    },
+    {
+        "id": "memo",
+        "voice": "memo",
+        "text": "INCIDENT REPORT 44-C: the corridor was measured twice.",
+    },
 ]
 
 # Lowercase content words that survive entity masking, so the fake judge can

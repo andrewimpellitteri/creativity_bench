@@ -265,9 +265,7 @@ def this_and_that(
                 if measured
                 else 0.0
             ),
-            "mean_balance": (
-                float(np.mean([r["balance"] for r in measured])) if measured else 0.0
-            ),
+            "mean_balance": (float(np.mean([r["balance"] for r in measured])) if measured else 0.0),
             "validity_rate": (
                 sum(r["validity_status"] == "valid" for r in records) / len(records)
                 if records
