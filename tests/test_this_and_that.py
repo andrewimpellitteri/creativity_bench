@@ -112,6 +112,52 @@ def test_excess_direction_and_magnitude_on_an_asymmetric_fixture():
     assert result.score == pytest.approx(0.25, abs=1e-9)
 
 
+def test_uninformative_baseline_excludes_the_pair_instead_of_zeroing_it():
+    """A baseline sitting on the geodesic makes the pair unmeasurable; it must
+    drop out of the mean and be counted, not drag the score toward 0. Pair 1
+    has the midpoint baseline gamma (excluded), pair 2 the off-axis delta
+    (informative): the score is pair 2's own 1.0, not the zeroed mean 0.5."""
+    stories = [*STORIES, {"genre": "delta", "text": "DDD story about a canal."}]
+    embedder = FakeEmbedder(
+        fixed={
+            "AAA": np.array([1.0, 0.0, 0.0]),
+            "BBB": np.array([0.0, 1.0, 0.0]),
+            "CCC": np.array([1.0, 1.0, 0.0]) / np.sqrt(2),
+            "DDD": np.array([0.0, 0.0, -1.0]),
+            "BLEND": np.array([1.0, 1.0, 0.0]) / np.sqrt(2),
+        },
+        dim=3,
+    )
+    result = run(embedder=embedder, stories=stories, n_pairs=2, rng=random.Random(49))
+    assert result.metrics["excluded_pairs"] == 1
+    assert result.details["pairs"][0]["baseline_excluded"] is True
+    assert result.details["pairs"][1]["baseline_excluded"] is False
+    assert result.score == pytest.approx(1.0, abs=1e-9)
+    assert result.details["baseline_guard"] == 1e-3
+
+
+def test_small_but_informative_baseline_still_scores():
+    """Baseline excess of 0.002 sits above the 1e-3 guard: the pair keeps its
+    normal weight and the reproduced 1.27e-4 failure stays excluded."""
+    theta = float(np.arccos(np.sqrt(2) * np.cos(0.251 * np.pi)))
+    baseline = np.array([np.cos(theta) / np.sqrt(2), np.cos(theta) / np.sqrt(2), np.sin(theta)])
+    embedder = FakeEmbedder(
+        fixed={
+            "AAA": np.array([1.0, 0.0, 0.0]),
+            "BBB": np.array([0.0, 1.0, 0.0]),
+            "CCC": baseline,
+            "BLEND": np.array([1.0, 1.0, 0.0]) / np.sqrt(2),
+        },
+        dim=3,
+    )
+    result = run(embedder=embedder)
+    pair = result.details["pairs"][0]
+    assert pair["baseline_excluded"] is False
+    assert pair["baseline_angular_excess"] == pytest.approx(0.002, abs=1e-9)
+    assert result.metrics["excluded_pairs"] == 0
+    assert result.score == pytest.approx(1.0, abs=1e-9)
+
+
 def test_off_axis_story_scores_zero():
     """A candidate no closer to the pair than the unrelated baseline earns nothing."""
     embedder = FakeEmbedder(

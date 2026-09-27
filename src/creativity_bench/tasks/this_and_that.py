@@ -28,6 +28,11 @@ Implementation notes:
   0 at either example, reported as ``mean_balance``. A story that copies one
   example scores 0 even if the judge gate passes it; an off-center blend is
   discounted by how unevenly it sits between the examples.
+- The baseline excess is a difference of angular distances, so a corpus story
+  can sit (almost) on the geodesic by chance and leave the pair unmeasurable.
+  A pair whose baseline excess falls below ``BASELINE_GUARD`` is excluded from
+  the score mean and counted as ``excluded_pairs`` -- never scored 0, which
+  would read exactly as the low-creativity number the design forbids.
 - Distance alone is gameable: an empty, generic or copied story can land between
   two examples without blending anything. A judge gate therefore requires the
   story to draw recognizably on BOTH examples and to be comprehensible before
@@ -85,6 +90,14 @@ Answer strictly as a JSON object with these three boolean fields and nothing els
 """
 
 _GATE_FIELDS = ("draws_on_a", "draws_on_b", "comprehensible")
+
+# An unrelated baseline whose angular excess sits below this lies on the A-B
+# geodesic for all practical purposes: the reproduced failure measured 1.27e-4
+# (far above float noise), and dividing by such a value turns embedder noise
+# into the score. Such pairs are excluded from the mean and counted instead of
+# being scored 0; real candidate excesses differ on a ~1e-2 scale, so 1e-3
+# does not exclude measurable pairs.
+BASELINE_GUARD = 1e-3
 
 
 def _parse_gate(text: str) -> dict:
@@ -189,8 +202,8 @@ def this_and_that(
         # Floating point can push a geodesic point marginally negative.
         excess = max(0.0, excess)
         baseline_excess = max(0.0, baseline_excess)
-        degenerate_baseline = baseline_excess < 1e-6
-        interpolation = 0.0 if degenerate_baseline else clamp01(1.0 - excess / baseline_excess)
+        baseline_excluded = baseline_excess < BASELINE_GUARD
+        interpolation = 0.0 if baseline_excluded else clamp01(1.0 - excess / baseline_excess)
         balance = _balance(
             _angular(vec_a, vec_candidate), _angular(vec_b, vec_candidate), pair_distance
         )
@@ -204,7 +217,7 @@ def this_and_that(
                 "angular_excess": excess,
                 "baseline_angular_excess": baseline_excess,
                 "pair_angular_distance": pair_distance,
-                "degenerate_baseline": degenerate_baseline,
+                "baseline_excluded": baseline_excluded,
                 "interpolation": interpolation,
                 "balance": balance,
             }
@@ -220,7 +233,7 @@ def this_and_that(
             record["validity_status"] = "unresolved"
         elif all(verdict[field] for field in _GATE_FIELDS):
             record["validity_status"] = "valid"
-            record["score"] = interpolation * balance
+            record["score"] = 0.0 if baseline_excluded else interpolation * balance
         else:
             record["validity_status"] = "invalid"
             record["failed_gates"] = [f for f in _GATE_FIELDS if not verdict[f]]
@@ -232,7 +245,7 @@ def this_and_that(
             )
         records.append(record)
 
-    scored = [record["score"] for record in records]
+    scored = [record["score"] for record in records if not record.get("baseline_excluded")]
     measured = [r for r in records if "angular_excess" in r]
     return TaskResult(
         name="this_and_that",
@@ -262,13 +275,14 @@ def this_and_that(
             ),
             "unresolved_judgments": sum(r["validity_status"] == "unresolved" for r in records),
             "generation_errors": sum("generation_error" in r for r in records),
-            "degenerate_baselines": sum(r.get("degenerate_baseline", False) for r in records),
+            "excluded_pairs": sum(r.get("baseline_excluded", False) for r in records),
         },
         details={
             "pairs": records,
             "judge_model": getattr(judge_client, "model", None),
             "embed_model": getattr(embedder, "model", None),
             "protocol": "this-and-that-v2",
+            "baseline_guard": BASELINE_GUARD,
             "judge_prompt": BLEND_JUDGE_PROMPT,
         },
     )
