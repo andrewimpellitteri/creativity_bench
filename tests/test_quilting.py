@@ -75,15 +75,37 @@ def test_distinct_recipes_and_distinct_stories_score_high():
 def test_repeated_recipe_lowers_selection_diversity():
     result = run([_response(["F1", "F2"], "alpha"), _response(["F1", "F2"], "beta")])
     assert result.metrics["unique_recipes"] == 1
-    assert result.metrics["selection_diversity"] == 0.5
+    assert result.metrics["selection_diversity"] == 0.0
+    assert result.metrics["selection_diversity_raw"] == 0.5
 
 
 def test_identical_stories_collapse_embedding_diversity():
     same = _response(["F1", "F2"], "identical")
     result = run([same, same], embedder=FakeEmbedder())
     assert result.metrics["story_diversity"] == pytest.approx(0.0, abs=1e-9)
-    assert result.metrics["selection_diversity"] == 0.5
-    assert result.score == pytest.approx(0.25, abs=1e-6)
+    assert result.metrics["selection_diversity"] == 0.0
+    assert result.score == pytest.approx(0.0, abs=1e-6)
+
+
+def test_selection_diversity_is_chance_corrected_and_sizes_comparable():
+    collapsed = _response(["F1", "F2"], "alpha")
+    fast = run([collapsed, collapsed])
+    full = run([collapsed] * 4)
+    assert fast.metrics["selection_diversity"] == pytest.approx(0.0, abs=1e-9)
+    assert full.metrics["selection_diversity"] == pytest.approx(0.0, abs=1e-9)
+    assert fast.metrics["selection_diversity_raw"] == pytest.approx(0.5)
+    assert full.metrics["selection_diversity_raw"] == pytest.approx(0.25)
+    assert fast.metrics["selection_diversity"] == full.metrics["selection_diversity"]
+    distinct = run(
+        [
+            _response(["F1", "F2"], "alpha"),
+            _response(["F3", "F4"], "beta"),
+            _response(["F2", "F5"], "gamma"),
+            _response(["F1", "F3"], "delta"),
+        ]
+    )
+    assert distinct.metrics["selection_diversity"] == pytest.approx(1.0)
+    assert distinct.metrics["selection_diversity_raw"] == pytest.approx(1.0)
 
 
 def test_fragment_listed_but_not_used_fails_the_gate():
@@ -110,6 +132,8 @@ def test_single_valid_run_is_degenerate_and_flagged():
     result = run([_response(["F1", "F2"], "alpha")])
     assert result.metrics["degenerate"] is True
     assert result.metrics["validity_rate"] == 1.0
+    assert result.metrics["selection_diversity"] == 0.0  # documented degenerate value
+    assert result.metrics["selection_diversity_raw"] == 1.0
     assert result.metrics["story_diversity"] is None
     assert result.score == 0.0  # gate result only, not a diversity measurement
 
@@ -130,11 +154,18 @@ def test_adding_a_valid_run_never_lowers_the_score():
 def test_format_broken_run_cannot_raise_the_score():
     identical = _response(["F1", "F2"], "alpha")
     all_valid = run([identical, identical])
-    assert all_valid.score == pytest.approx(0.25, abs=1e-6)
     format_broken = run([identical, "I picked two fragments and wrote a story."])
     assert format_broken.metrics["valid_runs"] == 1
     assert format_broken.metrics["degenerate"] is True
     assert format_broken.score <= all_valid.score
+
+    distinct = [_response(["F1", "F2"], "alpha"), _response(["F3", "F4"], "beta")]
+    all_valid_distinct = run(distinct)
+    format_broken_distinct = run(
+        [distinct[0], "I picked two fragments and wrote a story."]
+    )
+    assert all_valid_distinct.score > 0.0
+    assert format_broken_distinct.score < all_valid_distinct.score
 
 
 def test_unresolved_judgment_is_counted_and_uncredited():

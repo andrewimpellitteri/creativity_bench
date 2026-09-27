@@ -12,7 +12,13 @@ Implementation notes:
   hides the other, so both are reported and the score is their mean.
 - # NOTE(gwern): "unique subset selection" is measured as distinct fragment sets
   over VALID runs, not over all runs: a run that never produced a usable recipe
-  should not be able to raise diversity by failing differently each time.
+  should not be able to raise diversity by failing differently each time. It is
+  also chance-corrected like copycat's matching accuracy:
+  ``(unique_recipes - 1) / (valid_runs - 1)`` clamped to [0, 1], so a
+  mode-collapsed model scores 0 at every run count and fast/full sizes are
+  comparable. The raw unique/valid ratio is reported alongside as
+  ``selection_diversity_raw``. A single valid run has no diversity evidence and
+  scores 0 on both, the documented degenerate value.
 - Fragment use is verified offline, not by a judge: the model is told to quote
   chosen fragments verbatim, and matching normalizes case, whitespace and
   punctuation before checking containment. Offline verification keeps the gate
@@ -236,7 +242,12 @@ def quilting(
     validity_rate = len(valid) / len(records)
     recipes = [frozenset(record["chosen_ids"]) for record in valid]
     unique_recipes = len(set(recipes))
-    selection_diversity = unique_recipes / len(valid) if valid else 0.0
+    selection_diversity_raw = unique_recipes / len(valid) if valid else 0.0
+    if len(valid) >= 2:
+        # Chance-corrected, like copycat: a fully collapsed model scores 0.
+        selection_diversity = clamp01((unique_recipes - 1) / (len(valid) - 1))
+    else:
+        selection_diversity = 0.0
 
     story_diversity: float | None = None
     if len(valid) >= 2:
@@ -266,6 +277,7 @@ def quilting(
             "validity_rate": validity_rate,
             "unique_recipes": unique_recipes,
             "selection_diversity": selection_diversity,
+            "selection_diversity_raw": selection_diversity_raw,
             "story_diversity": story_diversity,
             "degenerate": degenerate,
             "unresolved_judgments": sum(r["validity_status"] == "unresolved" for r in records),
