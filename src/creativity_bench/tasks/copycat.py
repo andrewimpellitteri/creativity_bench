@@ -20,9 +20,26 @@ Implementation notes:
   clamped to [0, 1], so the score does not inflate with the number of openings.
   With k openings a coin-flip matcher scores 0. k must be at least 2, and at
   least 3 before the number means much; the fast size uses 3.
-- The matcher is an LLM and inherits its own biases: it may key on topic rather
-  than voice. Per-query raw responses and the label permutation are saved so a
-  re-judge with another model can rerun the same matching offline.
+- The matcher is an LLM and inherits its own biases. To stop it keying on
+  subject matter, every text it sees is ENTITY-MASKED first: ALL-CAPS words,
+  tokens containing digits (IDs and codes such as "44-C") and capitalized
+  words that are not sentence-initial (proper nouns such as "Augusta") are
+  replaced with a constant "[entity]" placeholder. Entity identity therefore
+  cannot connect a continuation to its opening, and only voice, register,
+  tense and rhythm remain -- which is what MATCH_PROMPT asks the judge to
+  judge, and what the score now measures. A model that writes every
+  continuation in its house voice while keeping the openings' entities can no
+  longer be matched back on those entities. Sentence-initial capitals stay
+  (they are ambiguous with ordinary sentence starts) and masking necessarily
+  hides capitalization as a register cue; both limits are accepted. The
+  alternative -- a topic-only ablation arm reported as a false-positive
+  baseline -- would measure the failure after the fact instead of removing it
+  from the matcher's view, so masking was chosen. Masking is applied by the
+  scored task before matching; the offline judge-validation harness calls
+  ``evaluate_match`` directly on raw text, so its controls still show a judge
+  what an unmasked matcher would see.
+- Per-query raw responses and the label permutation are saved so a re-judge
+  with another model can rerun the same matching offline.
 - Validity: an empty continuation, a continuation that merely restates the
   opening, or an unresolved judgment counts as a miss. Restatement is measured
   two ways and either fails the gate: the original mean lexical similarity,
@@ -84,6 +101,21 @@ Answer strictly as a JSON object with these two fields and nothing else:
 # similarity, and contiguous containment of the opening (see below).
 RESTATEMENT_THRESHOLD = 0.8
 
+# Constant placeholder: two different entities must not stay distinguishable
+# after masking, or an entity-keying matcher could still match on the labels.
+_ENTITY_MASK = "[entity]"
+_ALL_CAPS = re.compile(r"\b[A-Z][A-Z0-9]+(?:-[A-Z0-9]+)*\b")
+_CODE = re.compile(r"\b\w*\d[\w-]*\b")
+# Capitalized and not right after sentence-ending punctuation or a line break:
+# sentence-initial capitals are ambiguous with ordinary sentence starts.
+_PROPER_NOUN = re.compile(r"(?m)(?<!^)(?<![.!?…]\s)\b[A-Z][a-z']+\b")
+
+
+def _mask_entities(text: str) -> str:
+    masked = _ALL_CAPS.sub(_ENTITY_MASK, text)
+    masked = _CODE.sub(_ENTITY_MASK, masked)
+    return _PROPER_NOUN.sub(_ENTITY_MASK, masked)
+
 
 def _word_tokens(text: str) -> list[str]:
     return re.findall(r"[a-z0-9']+", text.lower())
@@ -138,9 +170,12 @@ def evaluate_match(
 
     Asks the blinded judge which opening a continuation belongs to; the integer
     labels are shuffled with ``rng`` so label position carries no information.
-    Returns ``{"verdict": {"chosen_id", "comprehensible"} | None, "judge_attempts":
-    [raw responses], "label_permutation": [opening ids in shown order], "status":
-    "ok" | "unresolved"}``. Judge transport errors are not caught here.
+    The texts passed in are used verbatim: the production task masks entities
+    before calling this, and offline judge-validation controls call it
+    directly on raw text. Returns ``{"verdict": {"chosen_id", "comprehensible"}
+    | None, "judge_attempts": [raw responses], "label_permutation": [opening
+    ids in shown order], "status": "ok" | "unresolved"}``. Judge transport
+    errors are not caught here.
     """
     order = list(range(len(openings)))
     rng.shuffle(order)
@@ -218,6 +253,11 @@ def copycat(
             records.append(record)
             continue
         record["continuation"] = continuation
+        # The matcher must judge voice, not subject matter: strip the entity
+        # spans an entity-keying matcher would match on. Raw text stays in the
+        # record for audit; masked_openings feed evaluate_match below.
+        masked_continuation = _mask_entities(continuation)
+        record["masked_continuation"] = masked_continuation
 
         if not continuation or not continuation.strip():
             record["validity_status"] = "invalid"
@@ -235,7 +275,10 @@ def copycat(
             continue
 
         evaluation = evaluate_match(
-            judge_client, openings=selected, continuation=continuation, rng=rng
+            judge_client,
+            openings=[{**o, "text": _mask_entities(o["text"])} for o in selected],
+            continuation=masked_continuation,
+            rng=rng,
         )
         verdict = evaluation["verdict"]
         record["judge_attempts"] = evaluation["judge_attempts"]
@@ -276,9 +319,10 @@ def copycat(
         details={
             "openings": records,
             "judge_model": getattr(judge_client, "model", None),
-            "protocol": "copycat-llm-uta-v1",
+            "protocol": "copycat-llm-uta-v2",
             "variant": "llm-uta blinded opening/continuation matching",
             "restatement_threshold": RESTATEMENT_THRESHOLD,
+            "entity_mask": _ENTITY_MASK,
             "match_prompt": MATCH_PROMPT,
         },
     )
