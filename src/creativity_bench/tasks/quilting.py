@@ -21,10 +21,15 @@ Implementation notes:
   comprehensible and weaves the fragments in rather than listing them.
 - The shuffle is per run and seeded, so fragment order cannot be confused with
   fragment preference, and the exact order shown is saved with each run.
-- Degenerate sizes are handled rather than raising: with one valid run neither
-  diversity quantity exists, so the score is the validity rate alone and the run
-  is flagged ``degenerate``. Such a score is a gate result, not a diversity
-  measurement, and must not be pooled with multi-run scores.
+- Degenerate sizes are handled rather than raising: with fewer than two valid
+  runs neither diversity quantity exists, and an undefined quantity contributes
+  0 to the mean, so the score is 0 -- the same scale as multi-run scores. The
+  runs still count toward ``validity_rate`` and the result is flagged
+  ``degenerate``; such a score is a gate result, not a diversity measurement,
+  and must not be pooled with multi-run scores. Because undefined diversity is
+  0 rather than the validity rate, breaking the output format can never raise
+  the score, and the single-valid-run score can never exceed any suite that
+  adds valid runs to it.
 """
 
 from __future__ import annotations
@@ -240,11 +245,10 @@ def quilting(
         story_diversity = clamp01(float(np.mean(pairwise_cosine_distances(embeddings))) / 2)
 
     degenerate = len(valid) < 2
-    if not valid:
+    if not valid or degenerate:
+        # Undefined diversity is 0, not the validity rate: reporting the gate
+        # here would let a format-broken run raise the score.
         score = 0.0
-    elif degenerate:
-        # One valid run: neither diversity quantity is defined. Report the gate.
-        score = validity_rate
     else:
         score = validity_rate * (selection_diversity + story_diversity) / 2
 

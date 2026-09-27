@@ -109,8 +109,32 @@ def test_malformed_response_is_invalid_not_fatal():
 def test_single_valid_run_is_degenerate_and_flagged():
     result = run([_response(["F1", "F2"], "alpha")])
     assert result.metrics["degenerate"] is True
+    assert result.metrics["validity_rate"] == 1.0
     assert result.metrics["story_diversity"] is None
-    assert result.score == 1.0  # gate result only, not a diversity measurement
+    assert result.score == 0.0  # gate result only, not a diversity measurement
+
+
+def test_adding_a_valid_run_never_lowers_the_score():
+    single = run([_response(["F1", "F2"], "alpha")])
+    assert single.score == 0.0
+    plus_identical = run(
+        [_response(["F1", "F2"], "alpha"), _response(["F1", "F2"], "beta")]
+    )
+    assert plus_identical.score >= single.score
+    plus_distinct = run(
+        [_response(["F1", "F2"], "alpha"), _response(["F3", "F4"], "beta")]
+    )
+    assert plus_distinct.score > single.score
+
+
+def test_format_broken_run_cannot_raise_the_score():
+    identical = _response(["F1", "F2"], "alpha")
+    all_valid = run([identical, identical])
+    assert all_valid.score == pytest.approx(0.25, abs=1e-6)
+    format_broken = run([identical, "I picked two fragments and wrote a story."])
+    assert format_broken.metrics["valid_runs"] == 1
+    assert format_broken.metrics["degenerate"] is True
+    assert format_broken.score <= all_valid.score
 
 
 def test_unresolved_judgment_is_counted_and_uncredited():
