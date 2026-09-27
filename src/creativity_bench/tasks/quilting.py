@@ -331,7 +331,7 @@ def quilting(
             "fragment_usage": usage,
             "judge_model": getattr(judge_client, "model", None),
             "embed_model": getattr(embedder, "model", None),
-            "protocol": "quilting-v1",
+            "protocol": "quilting-v2",
             "judge_prompt": QUILT_JUDGE_PROMPT,
         },
     )
