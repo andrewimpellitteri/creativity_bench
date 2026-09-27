@@ -110,9 +110,7 @@ def spearman(a: list[float], b: list[float]) -> float:
 def kendall(a: list[float], b: list[float]) -> float:
     n = len(a)
     num = sum(
-        np.sign(a[i] - a[j]) * np.sign(b[i] - b[j])
-        for i in range(n)
-        for j in range(i + 1, n)
+        np.sign(a[i] - a[j]) * np.sign(b[i] - b[j]) for i in range(n) for j in range(i + 1, n)
     )
     return float(num / (n * (n - 1) / 2))
 
@@ -183,8 +181,10 @@ def main() -> None:
         ext = [j[3] for j in join]
         sp, kt = spearman(our, ext), kendall(our, ext)
         lines += [f"## {board} (n={len(join)})", "", "n.b. * = approximate variant match", ""]
-        lines += ["| our model | EQ-Bench name | our composite | their score |",
-                  "|---|---|---|---|"]
+        lines += [
+            "| our model | EQ-Bench name | our composite | their score |",
+            "|---|---|---|---|",
+        ]
         ordered = sorted(zip(join, our, strict=True), key=lambda t: -t[0][3])
         for (ours_name, ext_name, approx, score), c in ordered:
             flag = "*" if approx else ""

@@ -96,10 +96,7 @@ def main() -> int:
         print("Too few models with complete swaps; refusing to rank", file=sys.stderr)
         return 1
 
-    replayed_prod = {
-        m: ((orig_a[m] + orig_b[m]) / 2 if m in orig_b else orig_a[m])
-        for m in models
-    }
+    replayed_prod = {m: ((orig_a[m] + orig_b[m]) / 2 if m in orig_b else orig_a[m]) for m in models}
     columns = {
         "replayed original (deepseek-v4-pro)": replayed_prod,
         "deepseek-flash as judge": flash,
@@ -118,10 +115,7 @@ def main() -> int:
         "|---|---|---|---|" + "---|" if args.glm else "|---|---|---|---|",
     ]
     for m in sorted(models, key=lambda m: -columns["replayed original (deepseek-v4-pro)"][m]):
-        row = (
-            f"| {m} | {prod.get(m, float('nan')):.2f} | {replayed_prod[m]:.2f} "
-            f"| {flash[m]:.2f} "
-        )
+        row = f"| {m} | {prod.get(m, float('nan')):.2f} | {replayed_prod[m]:.2f} | {flash[m]:.2f} "
         row += f"| {glm[m]:.2f} |" if args.glm else "|"
         lines.append(row)
     lines += ["", "Rank correlations across judges (Spearman):"]
