@@ -1,6 +1,6 @@
 # Workboard — what is open, in what order
 
-Status date: 2026-09-16. Protocol on main: `0.5-coverage`.
+Status date: 2026-09-27. Protocol on main: `0.5-coverage`.
 Companion docs: [BENCHMARK_DESIGN.md](BENCHMARK_DESIGN.md) (why the measurements
 are shaped this way), [README.md](README.md) (how to run them).
 
@@ -8,6 +8,33 @@ Board conventions: **P0** blocks a credible published claim; **P1** is the next
 real experiment; **P2** is engineering that removes friction or cost; **P3** is
 new surface area. Each item names its *done test* — the observable that closes
 it — because "improve the judge" is not a task.
+
+---
+
+## Just landed (2026-09-27)
+
+Fan-out session: three concurrent agents in worktrees `cb-judgeswap`,
+`cb-fix-quilting` and `cb-fix-tt-copycat` closed the P0.0 defect list and the
+pending judge-swap glm column. Merged to main; 386 tests green, ruff 0.16.8
+clean end to end.
+
+| Item | Outcome | Commit |
+|---|---|---|
+| P0.0 #1 quilting non-monotonic | score = `validity_rate × (selection_diversity + story_diversity)/2`; <2 valid runs scores 0; format failures can only lower | 2552a5a |
+| P0.0 #4 diversity floor | chance-corrected `(unique−1)/(valid−1)`; raw rate reported alongside | b8708eb |
+| P0.0 #8 quilting parser | bold/colon-less headers, one-line listings and wrapped fragments accepted; `malformed_responses` metric added | 9c711d8 |
+| P0.0 #2 T&T verbatim copy | balance term `1 − |d(a,c) − d(b,c)|/d(a,b)` folded in as a product; a verbatim copy of an example scores 0 | acd28ef |
+| P0.0 #3 near-zero baseline | guard 1e-3; uninformative pairs excluded from the mean and counted as `excluded_pairs` | 990499e |
+| P0.0 #6 restatement gate | adds contiguous-containment check (opening reproduced ≥0.8 fails the gate) | 167805c |
+| P0.0 #7 entity reuse | entity-masked matcher: spans masked to `[entity]` before the blinded match; masked text stored in the record | 8a4b79a |
+| P0.0 #5 JSON extraction | found **already fixed** at c596d9e (this board was stale); dead regex removed, 6 pinning tests added | 02ab77f |
+| glm judge-swap column | full-cohort glm-5.3-flash rescore (97.8/99.6/89.9 % agreement, 49/276 unresolved) folded into SUMMARY and ALTERNATIVE_LEADERBOARD (rho 0.92/0.87/0.83) | 3fad867 |
+
+Per-task protocol tags bumped for the semantics changes: `quilting-v2`,
+`this-and-that-v2`, `copycat-llm-uta-v2`. Still open from P0.0: #9's
+runner-level test that renaming `unresolved_judgments` flips
+`evaluation_complete` (all per-task regression tests landed). P1.1 (first live
+pilot) is now unblocked.
 
 ---
 
@@ -38,7 +65,11 @@ published cohort cannot be extended, only re-run.
 
 ---
 
-## P0.0 — defects found reviewing the landing commit (fix before any live run)
+## P0.0 — defects found reviewing the landing commit (CLOSED 2026-09-27, except #9 remainder)
+
+Items 1–8 are fixed with failing-first regression tests (see "Just landed
+2026-09-27" above); item 9's per-task gaps are closed, its runner-level gap is
+not. Original review preserved below for history.
 
 A blind review of `a5a1ee7` reproduced each of these against the real modules.
 They are P0 because every one of them makes a score mean something other than
@@ -103,7 +134,8 @@ what the README says it means. Ordered by severity.
 
 *Done test for this block:* each defect has a regression test that fails against
 the current implementation, and the README's score descriptions match what the
-code actually rewards.
+code actually rewards. **Status:** satisfied for 1–8 as of 2026-09-27; the
+runner-level half of 9 remains open below.
 
 ---
 
