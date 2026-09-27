@@ -24,14 +24,21 @@ Implementation notes:
   than voice. Per-query raw responses and the label permutation are saved so a
   re-judge with another model can rerun the same matching offline.
 - Validity: an empty continuation, a continuation that merely restates the
-  opening, or an unresolved judgment counts as a miss. Unresolved judgments are
-  additionally reported so the runner marks the evaluation incomplete.
+  opening, or an unresolved judgment counts as a miss. Restatement is measured
+  two ways and either fails the gate: the original mean lexical similarity,
+  and the fraction of the opening reproduced as one contiguous token block.
+  The latter exists because the realistic failure -- quoting the opening
+  verbatim and then adding fresh prose -- scores only ~0.22 on mean overlap
+  over the whole text, sailing under any whole-text threshold while handing
+  the matcher a verbatim key. Unresolved judgments are additionally reported
+  so the runner marks the evaluation incomplete.
 """
 
 from __future__ import annotations
 
 import json
 import random
+import re
 
 from tqdm.auto import tqdm
 
@@ -72,8 +79,38 @@ Answer strictly as a JSON object with these two fields and nothing else:
 """
 
 # A continuation this similar to its own opening is a restatement, not a
-# continuation; it would make matching trivial for reasons the task is not about.
+# continuation; it would make matching trivial for reasons the task is not
+# about. The threshold applies to both restatement measures: mean lexical
+# similarity, and contiguous containment of the opening (see below).
 RESTATEMENT_THRESHOLD = 0.8
+
+
+def _word_tokens(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9']+", text.lower())
+
+
+def _opening_containment(continuation: str, opening: str) -> float:
+    """Fraction of the opening reproduced as one contiguous token block.
+
+    Whole-text overlap reads low for the realistic failure: a continuation
+    that quotes the opening and then adds 200 words scores ~0.22 on
+    ``lexical_similarity`` while reproducing the opening in full. Contiguous
+    containment separates quotation (one long block) from the phrase reuse
+    any in-voice continuation needs (short blocks).
+    """
+    opening_words = _word_tokens(opening)
+    continuation_words = _word_tokens(continuation)
+    if not opening_words or not continuation_words:
+        return 0.0
+    best = 0
+    previous = [0] * (len(continuation_words) + 1)
+    for word in opening_words:
+        current = [0] * (len(continuation_words) + 1)
+        for position, token in enumerate(continuation_words, start=1):
+            current[position] = previous[position - 1] + 1 if token == word else 0
+            best = max(best, current[position])
+        previous = current
+    return best / len(opening_words)
 
 
 def _parse_match(text: str, count: int) -> dict:
@@ -188,8 +225,10 @@ def copycat(
             records.append(record)
             continue
         similarity = lexical_similarity(continuation, opening["text"])
+        containment = _opening_containment(continuation, opening["text"])
         record["opening_similarity"] = similarity
-        if similarity >= RESTATEMENT_THRESHOLD:
+        record["opening_containment"] = containment
+        if similarity >= RESTATEMENT_THRESHOLD or containment >= RESTATEMENT_THRESHOLD:
             record["validity_status"] = "invalid"
             record["failed_gates"] = ["restates_opening"]
             records.append(record)

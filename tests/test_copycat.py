@@ -91,6 +91,49 @@ def test_restated_opening_fails_before_judging():
     assert result.details["openings"][0]["failed_gates"] == ["restates_opening"]
 
 
+def test_quoting_then_continuing_fails_the_restatement_gate():
+    """The realistic failure: quote the opening verbatim, then add 200 words.
+    Mean-token similarity sits near 0.22, so the gate must measure how much of
+    the opening is reproduced, not average overlap over the whole text."""
+
+    def quote_then_drift(messages):
+        prompt = messages[-1]["content"]
+        opening = _continuation_for(prompt)
+        if opening is None:
+            return '{"opening": 1, "comprehensible": true}'
+        tag = next(o["id"] for o in OPENINGS if o["text"] == opening)
+        filler = "He watched the door instead of the street and let the silence talk. " * 15
+        return f"{opening} [[{tag}]] {filler.strip()}"
+
+    result = run(client=FakeClient(quote_then_drift))
+    assert result.score == 0.0
+    assert result.metrics["restatements"] == 3
+    assert result.metrics["validity_rate"] == 0.0
+    assert all(r["failed_gates"] == ["restates_opening"] for r in result.details["openings"])
+
+
+def test_sharing_a_phrase_is_not_a_restatement():
+    """A genuine continuation may reuse a few opening words; only wholesale
+    reproduction of the opening is a restatement."""
+    continuations = {
+        "noir": "The rain had stopped by dawn, and the city smelled of wet iron and regret.",
+        "folk": "Now in that country a second miller appeared, poorer than the first.",
+        "memo": "INCIDENT REPORT 12-B went into the drawer with the others, unremarked.",
+    }
+
+    def continue_in_voice(messages):
+        prompt = messages[-1]["content"]
+        opening = _continuation_for(prompt)
+        if opening is None:
+            return '{"opening": 1, "comprehensible": true}'
+        tag = next(o["id"] for o in OPENINGS if o["text"] == opening)
+        return f"[[{tag}]] {continuations[tag]}"
+
+    result = run(client=FakeClient(continue_in_voice))
+    assert result.metrics["restatements"] == 0
+    assert result.metrics["validity_rate"] == 1.0
+
+
 def test_unresolved_judgment_counts_as_a_miss_and_is_reported():
     def bad_judge(messages):
         prompt = messages[-1]["content"]
