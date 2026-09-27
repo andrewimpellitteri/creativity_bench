@@ -82,7 +82,7 @@ embedding model.
 
 | Task | What it measures | Score | Needs |
 |------|------------------|-------|:-----:|
-| **Quilting** | Recipe variety: pick fragments from a shuffled pile, then actually use them | Validity-gated mean of distinct-subset rate and story embedding diversity across runs | J + E |
+| **Quilting** | Recipe variety: pick fragments from a shuffled pile, then actually use them | Validity-gated mean of chance-corrected distinct-subset rate ((unique−1)/(valid−1) over valid runs) and story embedding diversity; fewer than 2 valid runs scores 0, so format failures never raise it | J + E |
 
 ## Setup
 
