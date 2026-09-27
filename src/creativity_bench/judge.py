@@ -14,12 +14,9 @@ applied ("edits_applied").
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 
 from .client import LLMClient
-
-JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
 
 
 def extract_json_object(text: str) -> dict:
