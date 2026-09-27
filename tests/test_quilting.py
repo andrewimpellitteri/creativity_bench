@@ -177,13 +177,9 @@ def test_single_valid_run_is_degenerate_and_flagged():
 def test_adding_a_valid_run_never_lowers_the_score():
     single = run([_response(["F1", "F2"], "alpha")])
     assert single.score == 0.0
-    plus_identical = run(
-        [_response(["F1", "F2"], "alpha"), _response(["F1", "F2"], "beta")]
-    )
+    plus_identical = run([_response(["F1", "F2"], "alpha"), _response(["F1", "F2"], "beta")])
     assert plus_identical.score >= single.score
-    plus_distinct = run(
-        [_response(["F1", "F2"], "alpha"), _response(["F3", "F4"], "beta")]
-    )
+    plus_distinct = run([_response(["F1", "F2"], "alpha"), _response(["F3", "F4"], "beta")])
     assert plus_distinct.score > single.score
 
 
@@ -197,9 +193,7 @@ def test_format_broken_run_cannot_raise_the_score():
 
     distinct = [_response(["F1", "F2"], "alpha"), _response(["F3", "F4"], "beta")]
     all_valid_distinct = run(distinct)
-    format_broken_distinct = run(
-        [distinct[0], "I picked two fragments and wrote a story."]
-    )
+    format_broken_distinct = run([distinct[0], "I picked two fragments and wrote a story."])
     assert all_valid_distinct.score > 0.0
     assert format_broken_distinct.score < all_valid_distinct.score
 
