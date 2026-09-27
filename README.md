@@ -66,7 +66,7 @@ embedding model.
 | Task | What it measures | Score | Needs |
 |------|------------------|-------|:-----:|
 | **Style transfer** | Genre transformation: summarize a story, rewrite it in a different genre | Cosine distance / 2, gated on plot preservation, target genre and comprehensibility | J + E |
-| **This & that** | Blending two unlike examples into one story that is like both | Angular interpolation excess against an unrelated baseline story, gated on a judge confirming the story draws on both examples | J + E |
+| **This & that** | Blending two unlike examples into one story that is like both | Baseline-normalized angular interpolation excess times a balance term (1 at the midpoint between the examples, 0 for a story sitting at one of them, so a verbatim copy scores 0), gated on a judge confirming the story draws on both examples | J + E |
 | **Copycat** (LLM-uta) | Holding a borrowed voice instead of collapsing to a house style | Chance-corrected accuracy of a blinded judge matching each continuation back to its opening | J |
 
 ### Difference & negation — can it move away from something on purpose?

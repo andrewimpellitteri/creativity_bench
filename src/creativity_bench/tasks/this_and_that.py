@@ -21,6 +21,13 @@ Implementation notes:
   than a story that was never shown the pair. This keeps the comparison inside
   one fixed embedding space, as the audit requires; scores from different
   embedders are not comparable.
+- Every point on the geodesic has excess 0, including the examples themselves,
+  so excess alone cannot tell a true blend from a verbatim copy of one example.
+  The score is therefore the product of the baseline-normalized interpolation
+  and a balance term, ``1 - |d(a,c) - d(b,c)| / d(a,b)``: 1 at the midpoint,
+  0 at either example, reported as ``mean_balance``. A story that copies one
+  example scores 0 even if the judge gate passes it; an off-center blend is
+  discounted by how unevenly it sits between the examples.
 - Distance alone is gameable: an empty, generic or copied story can land between
   two examples without blending anything. A judge gate therefore requires the
   story to draw recognizably on BOTH examples and to be comprehensible before
@@ -114,6 +121,17 @@ def _angular(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.arccos(similarity) / np.pi)
 
 
+def _balance(distance_a: float, distance_b: float, pair_distance: float) -> float:
+    """1 at the midpoint between the examples, 0 at either example.
+
+    The triangle inequality bounds |d(a,c) - d(b,c)| by d(a,b); a degenerate
+    pair (identical examples) carries no balance information and is neutral.
+    """
+    if pair_distance < 1e-6:
+        return 1.0
+    return clamp01(1.0 - abs(distance_a - distance_b) / pair_distance)
+
+
 def this_and_that(
     client: LLMClient,
     *,
@@ -173,6 +191,9 @@ def this_and_that(
         baseline_excess = max(0.0, baseline_excess)
         degenerate_baseline = baseline_excess < 1e-6
         interpolation = 0.0 if degenerate_baseline else clamp01(1.0 - excess / baseline_excess)
+        balance = _balance(
+            _angular(vec_a, vec_candidate), _angular(vec_b, vec_candidate), pair_distance
+        )
 
         record.update(
             {
@@ -185,6 +206,7 @@ def this_and_that(
                 "pair_angular_distance": pair_distance,
                 "degenerate_baseline": degenerate_baseline,
                 "interpolation": interpolation,
+                "balance": balance,
             }
         )
 
@@ -198,7 +220,7 @@ def this_and_that(
             record["validity_status"] = "unresolved"
         elif all(verdict[field] for field in _GATE_FIELDS):
             record["validity_status"] = "valid"
-            record["score"] = interpolation
+            record["score"] = interpolation * balance
         else:
             record["validity_status"] = "invalid"
             record["failed_gates"] = [f for f in _GATE_FIELDS if not verdict[f]]
@@ -230,6 +252,9 @@ def this_and_that(
                 if measured
                 else 0.0
             ),
+            "mean_balance": (
+                float(np.mean([r["balance"] for r in measured])) if measured else 0.0
+            ),
             "validity_rate": (
                 sum(r["validity_status"] == "valid" for r in records) / len(records)
                 if records
@@ -243,7 +268,7 @@ def this_and_that(
             "pairs": records,
             "judge_model": getattr(judge_client, "model", None),
             "embed_model": getattr(embedder, "model", None),
-            "protocol": "this-and-that-v1",
+            "protocol": "this-and-that-v2",
             "judge_prompt": BLEND_JUDGE_PROMPT,
         },
     )

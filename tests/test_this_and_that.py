@@ -70,6 +70,48 @@ def test_raw_summed_cosine_distance_is_reported():
     assert "mean_summed_cosine_distance" in result.metrics
 
 
+def test_verbatim_copy_of_an_example_scores_zero():
+    """Endpoint of the geodesic: excess is 0, but the balance term is 1, so a
+    copy-paste of example A must not earn what a true blend earns."""
+    result = run(client=FakeClient(responder(blend="AAA copied verbatim")))
+    pair = result.details["pairs"][0]
+    assert pair["angular_excess"] == pytest.approx(0.0, abs=1e-9)
+    assert pair["balance"] == pytest.approx(0.0, abs=1e-9)
+    assert result.score == 0.0
+    assert result.details["pairs"][0]["validity_status"] == "valid"
+    assert result.metrics["mean_balance"] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_midpoint_blend_keeps_the_full_score():
+    """The balance term must not tax a genuine midpoint blend."""
+    result = run()
+    pair = result.details["pairs"][0]
+    assert pair["balance"] == pytest.approx(1.0, abs=1e-9)
+    assert result.score == pytest.approx(1.0, abs=1e-6)
+
+
+def test_excess_direction_and_magnitude_on_an_asymmetric_fixture():
+    """A=x, B=y, candidate=(1,0,1)/sqrt(2), baseline=-z: d(a,c)=0.25 and
+    d(b,c)=0.5, so excess = 0.25 + 0.5 - 0.5 = 0.25. A sign flip of the
+    excess formula would clamp to 0 and fail this; the baseline excess is
+    0.5 + 0.5 - 0.5 = 0.5. The fold is the product: (1 - 0.25/0.5) * 0.5."""
+    embedder = FakeEmbedder(
+        fixed={
+            "AAA": np.array([1.0, 0.0, 0.0]),
+            "BBB": np.array([0.0, 1.0, 0.0]),
+            "CCC": np.array([0.0, 0.0, -1.0]),
+            "SKEW": np.array([1.0, 0.0, 1.0]) / np.sqrt(2),
+        },
+        dim=3,
+    )
+    result = run(embedder=embedder, client=FakeClient(responder(blend="SKEW text")))
+    pair = result.details["pairs"][0]
+    assert pair["angular_excess"] == pytest.approx(0.25, abs=1e-9)
+    assert pair["baseline_angular_excess"] == pytest.approx(0.5, abs=1e-9)
+    assert pair["balance"] == pytest.approx(0.5, abs=1e-9)
+    assert result.score == pytest.approx(0.25, abs=1e-9)
+
+
 def test_off_axis_story_scores_zero():
     """A candidate no closer to the pair than the unrelated baseline earns nothing."""
     embedder = FakeEmbedder(
