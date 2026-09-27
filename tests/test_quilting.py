@@ -128,6 +128,42 @@ def test_malformed_response_is_invalid_not_fatal():
     assert "malformed_response" in result.details["runs"][0]["failed_gates"]
 
 
+def test_malformed_responses_metric_counts_unparseable_output():
+    clean = _response(["F1", "F2"], "alpha")
+    result = run(["I chose some fragments and wrote a story about them.", clean])
+    assert result.metrics["malformed_responses"] == 1
+    assert result.metrics["generation_errors"] == 0
+    clean_result = run([clean, clean])
+    assert clean_result.metrics["malformed_responses"] == 0
+
+
+def test_parser_accepts_one_line_listing():
+    listing = "FRAGMENTS: the last ferry had already gone, a key that fit nothing"
+    story = "STORY:\nThen the last ferry had already gone. Then a key that fit nothing."
+    result = run([f"{listing}\n\n{story}"])
+    assert result.details["runs"][0]["chosen_ids"] == ["F1", "F2"]
+    assert result.details["runs"][0]["validity_status"] == "valid"
+
+
+def test_parser_accepts_fragment_wrapped_across_lines():
+    listing = "FRAGMENTS:\n- the last ferry\nhad already gone\n- a key that fit nothing"
+    story = "STORY:\nThen the last ferry had already gone. Then a key that fit nothing."
+    result = run([f"{listing}\n\n{story}"])
+    assert result.details["runs"][0]["chosen_ids"] == ["F1", "F2"]
+    assert result.details["runs"][0]["validity_status"] == "valid"
+
+
+def test_parser_accepts_bold_story_header_without_colon():
+    listing = "FRAGMENTS:\n- the last ferry had already gone\n- a key that fit nothing"
+    story = "**Story**\nThen the last ferry had already gone. Then a key that fit nothing."
+    result = run([f"{listing}\n\n{story}"])
+    assert result.details["runs"][0]["chosen_ids"] == ["F1", "F2"]
+    assert result.details["runs"][0]["story"] == (
+        "Then the last ferry had already gone. Then a key that fit nothing."
+    )
+    assert result.details["runs"][0]["validity_status"] == "valid"
+
+
 def test_single_valid_run_is_degenerate_and_flagged():
     result = run([_response(["F1", "F2"], "alpha")])
     assert result.metrics["degenerate"] is True

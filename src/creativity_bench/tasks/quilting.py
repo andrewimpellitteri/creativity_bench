@@ -25,6 +25,13 @@ Implementation notes:
   deterministic and re-checkable from the saved transcript at zero cost. The
   judge is used only for what text matching cannot see -- whether the story is
   comprehensible and weaves the fragments in rather than listing them.
+- Output format is parsed tolerantly: bold markers around section headers and
+  a story header without a colon are accepted, the listing may be a single
+  line, and a fragment may wrap across two lines. A response that still cannot
+  be split into a fragment listing plus a story is a formatting failure, not a
+  creativity measurement: it is marked ``malformed_response`` and counted in
+  the ``malformed_responses`` metric so the failure is visible as its own
+  number. (Surfacing it in report/chart code is a follow-up.)
 - The shuffle is per run and seeded, so fragment order cannot be confused with
   fragment preference, and the exact order shown is saved with each run.
 - Degenerate sizes are handled rather than raising: with fewer than two valid
@@ -98,27 +105,60 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]+", " ", text.lower())).strip()
 
 
+_SECTION_RE = re.compile(
+    r"\**\s*FRAGMENTS?\s*\**\s*:(?P<listing>.*?)"
+    r"(?:\**\s*\bSTORY\b\**\s*:(?P<story>.*)"
+    r"|(?:\r?\n|\A)[ \t]*\**\s*\bSTORY\b\**[ \t]*:?[ \t]*(?:\r?\n|$)(?P<story_bare>.*))",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
 def _split_sections(response: str) -> tuple[str, str]:
-    """Return (fragment block, story). Missing markers yield empty sections."""
-    match = re.search(r"FRAGMENTS?\s*:(.*?)STORY\s*:(.*)", response, re.IGNORECASE | re.DOTALL)
+    """Return (fragment block, story). Missing markers yield empty sections.
+
+    The story header may carry a colon anywhere in the text, or appear bare
+    (bold allowed) alone on its own line; the fragment header needs its colon
+    so the listing has a definite start.
+    """
+    match = _SECTION_RE.search(response)
     if not match:
         return "", ""
-    return match.group(1).strip(), match.group(2).strip()
+    story = match.group("story")
+    if story is None:
+        story = match.group("story_bare")
+    return match.group("listing").strip(), story.strip()
 
 
 def _identify(listing: str, fragments: list[dict]) -> list[str]:
-    """Fragment ids named in the listing block, in order, without duplicates."""
-    chosen: list[str] = []
-    for line in listing.splitlines():
-        normalized_line = _normalize(line)
-        if not normalized_line:
+    """Fragment ids named in the listing block, in order, without duplicates.
+
+    A line may name several fragments, and a fragment may wrap across two
+    lines: whole-line matches are taken first, then line+next-line joins, so
+    the plain per-line reading is never widened away. Order follows the
+    earliest line a fragment starts on.
+    """
+    specs = [(fragment["id"], _normalize(fragment["text"])) for fragment in fragments]
+    specs = [(fid, text) for fid, text in specs if text]
+    lines = [_normalize(line) for line in listing.splitlines()]
+    positions: dict[str, int] = {}
+
+    def note(fid: str, index: int) -> None:
+        positions.setdefault(fid, index)
+
+    for index, line in enumerate(lines):
+        if not line:
             continue
-        for fragment in fragments:
-            normalized = _normalize(fragment["text"])
-            if normalized and normalized in normalized_line and fragment["id"] not in chosen:
-                chosen.append(fragment["id"])
-                break
-    return chosen
+        for fid, text in specs:
+            if text in line:
+                note(fid, index)
+    for index, line in enumerate(lines[:-1]):
+        if not line:
+            continue
+        joined = f"{line} {lines[index + 1]}"
+        for fid, text in specs:
+            if text in joined:
+                note(fid, index)
+    return sorted(positions, key=positions.__getitem__)
 
 
 def _parse_gate(text: str) -> dict:
@@ -208,7 +248,7 @@ def quilting(
         record["story"] = story or None
         chosen = _identify(listing, fragments)
         record["chosen_ids"] = chosen
-        if not story:
+        if not listing or not story:
             record["failed_gates"].append("malformed_response")
         if len(chosen) != subset_size:
             record["failed_gates"].append("wrong_subset_size")
@@ -282,6 +322,7 @@ def quilting(
             "degenerate": degenerate,
             "unresolved_judgments": sum(r["validity_status"] == "unresolved" for r in records),
             "generation_errors": sum("generation_error" in r for r in records),
+            "malformed_responses": sum("malformed_response" in r["failed_gates"] for r in records),
             "subset_size": subset_size,
             "fragment_pool": len(fragments),
         },
