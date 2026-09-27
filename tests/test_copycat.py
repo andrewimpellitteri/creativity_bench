@@ -11,10 +11,32 @@ from creativity_bench.data import COPYCAT_OPENINGS
 from creativity_bench.tasks.copycat import copycat
 
 OPENINGS = [
-    {"id": "noir", "voice": "noir", "text": "The rain had opinions about my client."},
-    {"id": "folk", "voice": "folktale", "text": "Now in that country there lived a miller."},
-    {"id": "memo", "voice": "memo", "text": "INCIDENT REPORT 12-B. The corridor was measured."},
+    {
+        "id": "noir",
+        "voice": "noir",
+        "text": "The detective Vera Marlowe poured the whiskey like a confession.",
+    },
+    {
+        "id": "folk",
+        "voice": "folktale",
+        "text": "Now in that country there lived a miller named Odilia.",
+    },
+    {
+        "id": "memo",
+        "voice": "memo",
+        "text": "INCIDENT REPORT 44-C: the corridor was measured twice.",
+    },
 ]
+
+# Lowercase content words that survive entity masking, so the fake judge can
+# find its opening in a masked or unmasked listing alike.
+VOICE_KEYWORDS = {"noir": "whiskey", "folk": "miller", "memo": "corridor"}
+
+ENTITY_SPANS = {"noir": "Vera Marlowe", "folk": "Odilia", "memo": "INCIDENT REPORT 44-C"}
+
+
+def entity_tokens(text: str) -> set[str]:
+    return set(re.findall(r"\b[A-Z][A-Za-z']*\b|\b\w*\d[\w-]*\b", text))
 
 
 def _continuation_for(prompt: str) -> str | None:
@@ -33,7 +55,7 @@ def matching_judge(accuracy: str = "perfect", comprehensible: bool = True):
             return f"[[{tag}]] a continuation long enough to not restate the opening at all."
         tag = re.search(r"\[\[(\w+)\]\]", prompt).group(1)
         labels = re.findall(r"^(\d+)\. (.*)$", prompt, re.MULTILINE)
-        truth = next(int(label) for label, text in labels if text.startswith(_text_for(tag)[:20]))
+        truth = next(int(label) for label, text in labels if VOICE_KEYWORDS[tag] in text)
         # "chance": always answer with label 1, a matcher that cannot tell voices apart.
         choice = truth if accuracy == "perfect" else 1
         return json.dumps({"opening": choice, "comprehensible": comprehensible})
@@ -41,8 +63,30 @@ def matching_judge(accuracy: str = "perfect", comprehensible: bool = True):
     return respond
 
 
-def _text_for(tag: str) -> str:
-    return next(o["text"] for o in OPENINGS if o["id"] == tag)
+def entity_keyed_pipeline():
+    """Writer keeps its opening's entities in a uniform house voice; the
+    matcher then keys on entity-token overlap, as a topic-driven judge would."""
+
+    def respond(messages):
+        prompt = messages[-1]["content"]
+        if '"opening"' not in prompt:
+            opening = _continuation_for(prompt)
+            tag = next(o["id"] for o in OPENINGS if o["text"] == opening)
+            return (
+                f"[[{tag}]] {ENTITY_SPANS[tag]} stays exactly where it was while the paragraph "
+                "drifts along in the same smooth house voice, unhurried and uniform."
+            )
+        listing = re.findall(r"^(\d+)\. (.*)$", prompt, re.MULTILINE)
+        block = re.search(r"Here is one continuation:\n\n(.*?)\n\nDecide", prompt, re.DOTALL)
+        continuation_tokens = entity_tokens(block.group(1))
+        best_label, best_hits = 1, -1
+        for label, text in listing:
+            hits = len(entity_tokens(text) & continuation_tokens)
+            if hits > best_hits:
+                best_label, best_hits = int(label), hits
+        return json.dumps({"opening": best_label, "comprehensible": True})
+
+    return respond
 
 
 def run(responder=None, **kwargs):
@@ -91,6 +135,49 @@ def test_restated_opening_fails_before_judging():
     assert result.details["openings"][0]["failed_gates"] == ["restates_opening"]
 
 
+def test_quoting_then_continuing_fails_the_restatement_gate():
+    """The realistic failure: quote the opening verbatim, then add 200 words.
+    Mean-token similarity sits near 0.22, so the gate must measure how much of
+    the opening is reproduced, not average overlap over the whole text."""
+
+    def quote_then_drift(messages):
+        prompt = messages[-1]["content"]
+        opening = _continuation_for(prompt)
+        if opening is None:
+            return '{"opening": 1, "comprehensible": true}'
+        tag = next(o["id"] for o in OPENINGS if o["text"] == opening)
+        filler = "He watched the door instead of the street and let the silence talk. " * 15
+        return f"{opening} [[{tag}]] {filler.strip()}"
+
+    result = run(client=FakeClient(quote_then_drift))
+    assert result.score == 0.0
+    assert result.metrics["restatements"] == 3
+    assert result.metrics["validity_rate"] == 0.0
+    assert all(r["failed_gates"] == ["restates_opening"] for r in result.details["openings"])
+
+
+def test_sharing_a_phrase_is_not_a_restatement():
+    """A genuine continuation may reuse a few opening words; only wholesale
+    reproduction of the opening is a restatement."""
+    continuations = {
+        "noir": "The detective poured another whiskey and watched the street do nothing.",
+        "folk": "Now in that country a second miller appeared, poorer than the first.",
+        "memo": "INCIDENT REPORT 12-B went into the drawer with the others, unremarked.",
+    }
+
+    def continue_in_voice(messages):
+        prompt = messages[-1]["content"]
+        opening = _continuation_for(prompt)
+        if opening is None:
+            return '{"opening": 1, "comprehensible": true}'
+        tag = next(o["id"] for o in OPENINGS if o["text"] == opening)
+        return f"[[{tag}]] {continuations[tag]}"
+
+    result = run(client=FakeClient(continue_in_voice))
+    assert result.metrics["restatements"] == 0
+    assert result.metrics["validity_rate"] == 1.0
+
+
 def test_unresolved_judgment_counts_as_a_miss_and_is_reported():
     def bad_judge(messages):
         prompt = messages[-1]["content"]
@@ -118,6 +205,31 @@ def test_label_permutation_is_saved_for_rejudging():
     result = run()
     permutations = [r["label_permutation"] for r in result.details["openings"]]
     assert all(sorted(p) == sorted(o["id"] for o in OPENINGS) for p in permutations)
+
+
+def test_house_voice_with_same_entities_no_longer_scores_one():
+    """A model that keeps every opening's entities but writes in one uniform
+    house voice used to be matched back perfectly by an entity-keying judge;
+    the matcher must see masked text where only voice can separate openings."""
+    judge = FakeClient(entity_keyed_pipeline())
+    result = run(responder=entity_keyed_pipeline(), judge_client=judge)
+    match_prompts = [c[-1]["content"] for c in judge.calls if '"opening"' in c[-1]["content"]]
+    assert match_prompts
+    assert all("[entity]" in prompt for prompt in match_prompts)
+    assert all(
+        "Vera" not in prompt and "INCIDENT" not in prompt and "Odilia" not in prompt
+        for prompt in match_prompts
+    )
+    assert result.metrics["restatements"] == 0
+    assert result.metrics["matching_accuracy"] < 1.0
+    assert result.score < 1.0
+
+
+def test_masking_leaves_voice_matching_intact():
+    """Masking must not destroy the signal a voice-driven matcher needs."""
+    result = run()
+    assert result.score == pytest.approx(1.0)
+    assert result.metrics["matching_accuracy"] == 1.0
 
 
 def test_requires_judge_and_two_openings():
