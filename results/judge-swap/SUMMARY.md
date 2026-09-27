@@ -25,11 +25,23 @@ development evidence toward (not a substitute for) human agreement.
 
 ## Full-cohort rescore (2026-09-17)
 
-All 46 suite runs re-judged (276 SBD attempts). `deepseek-flash` as judge:
-98.9% / 99.6% / 90.9% agreement (premise / comprehensible / plot-distinct),
-25 plot-distinct flips. Alternative leaderboard for all 23 models in
-`ALTERNATIVE_LEADERBOARD.md`: rank correlation 0.92 with the production judge;
-`deepseek-v4-pro` holds 1.00 even under the alternative judge, while
-kimi-k2.5 (0.92→0.75) and qwen3.7-flash (0.75→0.42) drop. The `glm-5.3-flash`
-rescore of the full cohort is still running (slow endpoint, high retry rate);
-this file and the leaderboard gain its column when it lands.
+All 46 suite runs re-judged (276 SBD attempts), transcripts unchanged.
+Agreement per alternative judge, over comparable verdicts:
+
+| dimension | deepseek-flash | glm-5.3-flash |
+|---|---|---|
+| premise_adherent | 98.9% (273/276), 3 flips | 97.8% (222/227), 5 flips |
+| comprehensible | 99.6% (275/276), 1 flip | 99.6% (226/227), 1 flip |
+| plot_distinct | 90.9% (251/276), 25 flips | 89.9% (204/227), 23 flips |
+
+The `glm-5.3-flash` rescore landed 2026-09-18T05:19Z. Its parse-failure rate
+improved sharply over the 12-model swap (49/276 unresolved, 18%, vs 33%
+there) but remains the only source of lost comparability: `deepseek-flash`
+resolved all 276. Fail-closed, those 49 attempts earn no acceptance credit.
+
+Alternative leaderboard for all 23 models in `ALTERNATIVE_LEADERBOARD.md`,
+now with the glm column: rank correlation 0.87 with the production judge
+(flash: 0.92), and 0.83 between the two alternative judges. `deepseek-v4-pro`
+holds 1.00 under the flash judge and slips to 0.92 under glm, while kimi-k2.5
+(0.92→0.75) and qwen3.7-flash (0.75→0.42) drop under flash. `glm-5.3-flash`
+scores itself 0.92→0.67, the largest self-judge penalty in the table.
